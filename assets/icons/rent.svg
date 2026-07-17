@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Roof structure with chimney -->
+  <path d="M18 8.5V4h-2.5v2.2L12 3 2 11h3v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9h3l-3-2.5z" />
+  <!-- Main Door -->
+  <path d="M10 22v-6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v6" />
+  <!-- Window Details -->
+  <rect x="8" y="10" width="3" height="3" rx="0.5" />
+  <rect x="13" y="10" width="3" height="3" rx="0.5" />
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Outer SIM boundary with diagonal cut corner -->
+  <path d="M4 2h11.5L20 6.5V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" />
+  <!-- Contact chip detail -->
+  <rect x="7" y="11" width="10" height="7" rx="1" />
+  <path d="M10 11v7M14 11v7M7 14.5h10" />
+</svg>
