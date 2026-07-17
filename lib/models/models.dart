@@ -175,12 +175,16 @@ class AppSettings extends HiveObject {
   @HiveField(4)
   final String? geminiApiKey;
 
+  @HiveField(5)
+  final String userName;
+
   AppSettings({
     this.currency = 'PKR',
     this.overallMonthlyLimit,
     this.appLockEnabled = false,
     this.darkMode = false,
     this.geminiApiKey,
+    this.userName = 'Umer Nisar',
   });
 
   AppSettings copyWith({
@@ -189,6 +193,7 @@ class AppSettings extends HiveObject {
     bool? appLockEnabled,
     bool? darkMode,
     String? geminiApiKey,
+    String? userName,
   }) {
     return AppSettings(
       currency: currency ?? this.currency,
@@ -196,6 +201,7 @@ class AppSettings extends HiveObject {
       appLockEnabled: appLockEnabled ?? this.appLockEnabled,
       darkMode: darkMode ?? this.darkMode,
       geminiApiKey: geminiApiKey ?? this.geminiApiKey,
+      userName: userName ?? this.userName,
     );
   }
 }

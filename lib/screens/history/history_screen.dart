@@ -58,6 +58,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     final selectedMonth = ref.watch(selectedMonthProvider);
     final expenses = ref.watch(monthlyExpensesProvider);
     final categories = ref.watch(categoriesProvider);
+    final settings = ref.watch(appSettingsProvider);
 
     // Format Selected Month
     final monthDateTime = DateTime.parse('$selectedMonth-01');
@@ -387,7 +388,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Rs. ${totalSpentFiltered.toStringAsFixed(0)}',
+                            '${settings.currency} ${totalSpentFiltered.toStringAsFixed(0)}',
                             style: theme.textTheme.titleLarge?.copyWith(
                               fontFamily: 'Space Grotesk',
                               fontWeight: FontWeight.bold,
@@ -491,7 +492,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                     Row(
                                       children: [
                                         Text(
-                                          'Rs. ${dayTotal.toStringAsFixed(0)}',
+                                          '${settings.currency} ${dayTotal.toStringAsFixed(0)}',
                                           style: theme.textTheme.bodyMedium?.copyWith(
                                             fontFamily: 'Space Grotesk',
                                             fontWeight: FontWeight.bold,
@@ -578,7 +579,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                             crossAxisAlignment: CrossAxisAlignment.end,
                                             children: [
                                               Text(
-                                                'Rs. ${exp.amount.toStringAsFixed(0)}',
+                                                '${settings.currency} ${exp.amount.toStringAsFixed(0)}',
                                                 style: theme.textTheme.bodyLarge?.copyWith(
                                                   fontFamily: 'Space Grotesk',
                                                   fontWeight: FontWeight.bold,
@@ -850,12 +851,13 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }
 
   void _confirmDelete(BuildContext context, Expense expense) {
+    final settings = ref.read(appSettingsProvider);
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Delete Entry?'),
-          content: Text('Are you sure you want to delete this expense of Rs. ${expense.amount.toStringAsFixed(0)}?'),
+          content: Text('Are you sure you want to delete this expense of ${settings.currency} ${expense.amount.toStringAsFixed(0)}?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),

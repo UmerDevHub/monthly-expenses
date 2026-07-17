@@ -255,3 +255,49 @@ final categorySummariesProvider = Provider<List<CategorySummary>>((ref) {
   // Filter out categories with 0 spent unless they are default categories (keep defaults visible)
   return summaries.where((s) => s.category.isDefault || s.spent > 0).toList();
 });
+
+// Recurring Expenses Provider
+class RecurringExpensesNotifier extends StateNotifier<List<RecurringExpense>> {
+  RecurringExpensesNotifier() : super(HiveService.recurringBox.values.toList()) {
+    _seedRecurringIfEmpty();
+  }
+
+  void _seedRecurringIfEmpty() {
+    if (state.isEmpty) {
+      final seedList = [
+        RecurringExpense(
+          id: 'rec_rent',
+          categoryId: 'room_rent',
+          amount: 15000,
+          dueDay: 5,
+          label: 'Room Rent Rent',
+        ),
+        RecurringExpense(
+          id: 'rec_sim',
+          categoryId: 'sim_bill',
+          amount: 1050,
+          dueDay: 1,
+          label: 'Jazz Office Package',
+        ),
+      ];
+      for (var r in seedList) {
+        HiveService.recurringBox.put(r.id, r);
+      }
+      state = HiveService.recurringBox.values.toList();
+    }
+  }
+
+  Future<void> addRecurringExpense(RecurringExpense recurring) async {
+    await HiveService.recurringBox.put(recurring.id, recurring);
+    state = HiveService.recurringBox.values.toList();
+  }
+
+  Future<void> deleteRecurringExpense(String id) async {
+    await HiveService.recurringBox.delete(id);
+    state = HiveService.recurringBox.values.toList();
+  }
+}
+
+final recurringExpensesProvider = StateNotifierProvider<RecurringExpensesNotifier, List<RecurringExpense>>((ref) {
+  return RecurringExpensesNotifier();
+});

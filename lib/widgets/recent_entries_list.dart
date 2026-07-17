@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import '../models/models.dart';
+import '../providers/app_providers.dart';
 import '../theme/app_theme.dart';
 
-class RecentEntriesList extends StatelessWidget {
+class RecentEntriesList extends ConsumerWidget {
   final List<Expense> expenses;
   final List<Category> categories;
   final Function(Expense)? onExpenseTap;
@@ -17,9 +19,10 @@ class RecentEntriesList extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final settings = ref.watch(appSettingsProvider);
 
     if (expenses.isEmpty) {
       return Center(
@@ -192,7 +195,7 @@ class RecentEntriesList extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
-                                'Rs. ${exp.amount.toStringAsFixed(0)}',
+                                '${settings.currency} ${exp.amount.toStringAsFixed(0)}',
                                 style: theme.textTheme.bodyLarge?.copyWith(
                                   fontFamily: 'Space Grotesk',
                                   fontWeight: FontWeight.bold,

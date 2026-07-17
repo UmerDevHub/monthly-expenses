@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/category_progress_card.dart';
 import '../../widgets/recent_entries_list.dart';
 import '../../widgets/spending_pie_chart.dart';
+import '../category_detail/category_detail_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   final VoidCallback onAddExpenseTap;
@@ -72,7 +73,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Salaam, Umer 👋',
+                          'Salaam, ${settings.userName} 👋',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
@@ -170,8 +171,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         // Big Spent Amount
                         Text(
                           _obscureAmount 
-                              ? 'Rs. ••••••' 
-                              : 'Rs. ${totalSpent.toStringAsFixed(0)}',
+                              ? '${settings.currency} ••••••' 
+                              : '${settings.currency} ${totalSpent.toStringAsFixed(0)}',
                           style: theme.textTheme.displayLarge?.copyWith(
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
@@ -181,7 +182,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         // Budget context
                         if (overallLimit > 0) ...[
                           Text(
-                            'of Rs. ${overallLimit.toStringAsFixed(0)} budget',
+                            'of ${settings.currency} ${overallLimit.toStringAsFixed(0)} budget',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               fontSize: 13,
                               color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
@@ -235,20 +236,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    TextButton(
-                      onPressed: () {
-                        // Simply toggle show all / clean selection
-                        setState(() {
-                          _selectedCategoryHighlight = null;
-                        });
-                      },
-                      child: Text(
-                        'Clear filter',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
+                    Row(
+                      children: [
+                        if (_selectedCategoryHighlight != null) ...[
+                          TextButton(
+                            onPressed: () {
+                              final selectedCat = categories.firstWhere(
+                                (c) => c.id == _selectedCategoryHighlight,
+                              );
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => CategoryDetailScreen(category: selectedCat),
+                                ),
+                              );
+                            },
+                            child: const Text(
+                              'View Details',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        TextButton(
+                          onPressed: () {
+                            // Simply toggle show all / clean selection
+                            setState(() {
+                              _selectedCategoryHighlight = null;
+                            });
+                          },
+                          child: Text(
+                            'Clear filter',
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
@@ -256,7 +284,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 // Category Carousel (Horizontal Scroll)
                 SizedBox(
-                  height: 115,
+                  height: 138,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     physics: const BouncingScrollPhysics(),
@@ -426,12 +454,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _showDeleteConfirmation(BuildContext context, Expense expense) {
+    final settings = ref.read(appSettingsProvider);
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Delete Entry?'),
-          content: Text('Are you sure you want to delete this expense of Rs. ${expense.amount.toStringAsFixed(0)}?'),
+          content: Text('Are you sure you want to delete this expense of ${settings.currency} ${expense.amount.toStringAsFixed(0)}?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),

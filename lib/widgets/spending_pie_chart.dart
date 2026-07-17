@@ -1,9 +1,10 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/app_providers.dart';
 import '../theme/app_theme.dart';
 
-class SpendingPieChart extends StatefulWidget {
+class SpendingPieChart extends ConsumerStatefulWidget {
   final List<CategorySummary> summaries;
   final double totalSpent;
   final String? selectedCategoryId;
@@ -18,16 +19,17 @@ class SpendingPieChart extends StatefulWidget {
   });
 
   @override
-  State<SpendingPieChart> createState() => _SpendingPieChartState();
+  ConsumerState<SpendingPieChart> createState() => _SpendingPieChartState();
 }
 
-class _SpendingPieChartState extends State<SpendingPieChart> {
+class _SpendingPieChartState extends ConsumerState<SpendingPieChart> {
   int touchedIndex = -1;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final settings = ref.watch(appSettingsProvider);
     
     // Sort summaries so that the rendering is deterministic
     final list = List<CategorySummary>.from(widget.summaries)
@@ -115,7 +117,7 @@ class _SpendingPieChartState extends State<SpendingPieChart> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Rs.',
+                        settings.currency,
                         style: theme.textTheme.labelLarge?.copyWith(
                           fontSize: 12,
                           color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
@@ -185,7 +187,7 @@ class _SpendingPieChartState extends State<SpendingPieChart> {
                       ),
                       // Amount
                       Text(
-                        'Rs. ${summary.spent.toStringAsFixed(0)}',
+                        '${settings.currency} ${summary.spent.toStringAsFixed(0)}',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontFamily: 'Space Grotesk',
                           fontSize: 12,

@@ -206,13 +206,14 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       appLockEnabled: fields[2] as bool,
       darkMode: fields[3] as bool,
       geminiApiKey: fields[4] as String?,
+      userName: fields[5] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettings obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.currency)
       ..writeByte(1)
@@ -222,7 +223,9 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       ..writeByte(3)
       ..write(obj.darkMode)
       ..writeByte(4)
-      ..write(obj.geminiApiKey);
+      ..write(obj.geminiApiKey)
+      ..writeByte(5)
+      ..write(obj.userName);
   }
 
   @override

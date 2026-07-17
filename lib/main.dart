@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'services/hive_service.dart';
+import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 import 'providers/app_providers.dart';
 import 'screens/main_navigation.dart';
@@ -10,6 +11,9 @@ void main() async {
   
   // Initialize Local Hive Database
   await HiveService.init();
+  
+  // Initialize Local Notification Service
+  await NotificationService.init();
   
   runApp(
     const ProviderScope(

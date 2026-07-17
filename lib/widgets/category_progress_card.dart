@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../models/models.dart';
+import '../providers/app_providers.dart';
 import '../theme/app_theme.dart';
 
-class CategoryProgressCard extends StatelessWidget {
+class CategoryProgressCard extends ConsumerWidget {
   final Category category;
   final double spent;
   final double limit;
@@ -20,9 +22,10 @@ class CategoryProgressCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final settings = ref.watch(appSettingsProvider);
     
     final categoryColor = AppColors.getCategoryColor(category.name, category.colorHex);
     final usagePercent = limit > 0 ? (spent / limit) : 0.0;
@@ -83,7 +86,7 @@ class CategoryProgressCard extends StatelessWidget {
             const SizedBox(height: 2),
             // Spent Amount
             Text(
-              'Rs. ${spent.toStringAsFixed(0)}',
+              '${settings.currency} ${spent.toStringAsFixed(0)}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelLarge?.copyWith(
