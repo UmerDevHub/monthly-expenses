@@ -5,8 +5,10 @@ import 'package:intl/intl.dart';
 import '../../models/models.dart';
 import '../../providers/app_providers.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/currency_formatter.dart';
 
 class CategoryDetailScreen extends ConsumerStatefulWidget {
+
   final Category category;
 
   const CategoryDetailScreen({
@@ -30,12 +32,15 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
   void _showEditCategorySheet(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final settings = ref.read(appSettingsProvider);
+
+    final double displayLimit = (_currentCategory.monthlyLimit != null && _currentCategory.monthlyLimit! > 0)
+        ? CurrencyFormatter.convert(_currentCategory.monthlyLimit!, settings.currency)
+        : 0.0;
     
     final nameController = TextEditingController(text: _currentCategory.name);
     final limitController = TextEditingController(
-      text: _currentCategory.monthlyLimit != null 
-          ? _currentCategory.monthlyLimit!.toStringAsFixed(0) 
-          : '',
+      text: displayLimit > 0 ? displayLimit.toStringAsFixed(0) : '',
     );
     
     String selectedIcon = _currentCategory.iconAsset;
@@ -125,7 +130,8 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                         controller: limitController,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: 'Monthly Limit (Optional)',
+                          labelText: 'Monthly Limit (${settings.currency})',
+                          prefixText: '${settings.currency} ',
                           labelStyle: TextStyle(
                             color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
                           ),
@@ -250,13 +256,16 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                             final name = nameController.text.trim();
                             if (name.isEmpty) return;
                             
-                            final limit = double.tryParse(limitController.text.trim());
+                            final double? enteredVal = double.tryParse(limitController.text.trim());
+                            final double? limitInQAR = (enteredVal != null && enteredVal > 0)
+                                ? (settings.currency == 'PKR' ? (enteredVal / 74.03) : enteredVal)
+                                : null;
                             
                             final updated = _currentCategory.copyWith(
                               name: name,
                               iconAsset: selectedIcon,
                               colorHex: selectedColorHex,
-                              monthlyLimit: limit,
+                              monthlyLimit: limitInQAR,
                             );
 
                             ref.read(categoriesProvider.notifier).updateCategory(updated);
@@ -266,6 +275,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
 
                             Navigator.pop(context);
                           },
+
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
@@ -479,7 +489,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                       const SizedBox(height: 16),
                       // Big Spent Text
                       Text(
-                        '${settings.currency} ${categorySpent.toStringAsFixed(0)}',
+                        CurrencyFormatter.format(categorySpent, settings.currency, decimalDigits: 0),
                         style: theme.textTheme.displayLarge?.copyWith(
                           fontFamily: 'Space Grotesk',
                           fontSize: 32,
@@ -494,12 +504,13 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Limit: ${settings.currency} ${monthlyLimit.toStringAsFixed(0)}',
+                              'Limit: ${CurrencyFormatter.format(monthlyLimit, settings.currency, decimalDigits: 0)}',
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 fontSize: 13,
                                 color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
                               ),
                             ),
+
                             Text(
                               '${(usagePercent * 100).toStringAsFixed(0)}%',
                               style: theme.textTheme.bodyMedium?.copyWith(
@@ -594,7 +605,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              '${settings.currency} ${dailyAverage.toStringAsFixed(0)}',
+                              CurrencyFormatter.format(dailyAverage, settings.currency, decimalDigits: 0),
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontFamily: 'Space Grotesk',
                                 fontWeight: FontWeight.bold,
@@ -736,7 +747,7 @@ class _CategoryDetailScreenState extends ConsumerState<CategoryDetailScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      '${settings.currency} ${exp.amount.toStringAsFixed(0)}',
+                                      CurrencyFormatter.format(exp.amount, settings.currency, decimalDigits: 0),
                                       style: theme.textTheme.bodyLarge?.copyWith(
                                         fontFamily: 'Space Grotesk',
                                         fontWeight: FontWeight.bold,

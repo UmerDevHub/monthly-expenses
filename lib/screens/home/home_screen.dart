@@ -4,18 +4,19 @@ import 'package:intl/intl.dart';
 import '../../models/models.dart';
 import '../../providers/app_providers.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/custom_card.dart';
+import '../../utils/currency_formatter.dart';
+import '../../widgets/category_progress_card.dart';
 import '../../widgets/recent_entries_list.dart';
-import '../../widgets/spending_pie_chart.dart';
 import '../category_detail/category_detail_screen.dart';
-import '../reports/ai_insights_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   final VoidCallback onAddExpenseTap;
+  final Function(int)? onNavigateTab;
 
   const HomeScreen({
     super.key,
     required this.onAddExpenseTap,
+    this.onNavigateTab,
   });
 
   @override
@@ -24,13 +25,88 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _obscureAmount = false;
+  String? _selectedCategoryHighlight;
 
-  String _getTimeGreeting() {
+  String _getGreeting() {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good Morning ☀️';
-    if (hour < 17) return 'Good Afternoon 🌤️';
-    if (hour < 21) return 'Good Evening 🌙';
-    return 'Good Night ⭐️';
+    if (hour >= 5 && hour < 12) return 'Good Morning ☀️';
+    if (hour >= 12 && hour < 17) return 'Good Afternoon 🌤️';
+    if (hour >= 17 && hour < 21) return 'Good Evening 🌆';
+    return 'Good Night 🌙';
+  }
+
+  void _showCurrencySelector(BuildContext context) {
+    final settings = ref.read(appSettingsProvider);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? AppColors.surfaceCardDark : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Select Currency',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Fixed exchange rate: 1 QAR = 74.03 PKR',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                tileColor: settings.currency == 'QAR'
+                    ? (isDark ? const Color(0xFF1E2822) : const Color(0xFFE8F3EE))
+                    : null,
+                leading: const Text('🇶🇦', style: TextStyle(fontSize: 28)),
+                title: const Text('Qatari Riyal (QAR)', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Default Currency'),
+                trailing: settings.currency == 'QAR' ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                onTap: () {
+                  ref.read(appSettingsProvider.notifier).updateSettings(
+                    settings.copyWith(currency: 'QAR'),
+                  );
+                  Navigator.pop(context);
+                },
+              ),
+              const SizedBox(height: 10),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                tileColor: settings.currency == 'PKR'
+                    ? (isDark ? const Color(0xFF1E2822) : const Color(0xFFE8F3EE))
+                    : null,
+                leading: const Text('🇵🇰', style: TextStyle(fontSize: 28)),
+                title: const Text('Pakistani Rupee (PKR)', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('1 QAR = 74.03 PKR'),
+                trailing: settings.currency == 'PKR' ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                onTap: () {
+                  ref.read(appSettingsProvider.notifier).updateSettings(
+                    settings.copyWith(currency: 'PKR'),
+                  );
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -41,34 +117,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final selectedMonth = ref.watch(selectedMonthProvider);
     final settings = ref.watch(appSettingsProvider);
     final expenses = ref.watch(monthlyExpensesProvider);
+    final categories = ref.watch(categoriesProvider);
     final totalSpent = ref.watch(totalSpentProvider);
     final categorySummaries = ref.watch(categorySummariesProvider);
     final recurringBills = ref.watch(recurringExpensesProvider);
 
     // Format selected month
     final monthDateTime = DateTime.parse('$selectedMonth-01');
-    final monthName = DateFormat('MMMM yyyy').format(monthDateTime);
+    final monthName = DateFormat('MMM yyyy').format(monthDateTime);
 
     // Budget Calculations
-    final overallLimit = settings.overallMonthlyLimit ?? 0.0;
+    final overallLimit = settings.overallMonthlyLimit ?? 5000.0;
     final budgetUsagePercent = overallLimit > 0 ? (totalSpent / overallLimit) : 0.0;
-    final daysInMonth = DateTime(monthDateTime.year, monthDateTime.month + 1, 0).day;
-    final dailyBurnRate = totalSpent > 0 ? (totalSpent / daysInMonth) : 0.0;
 
-    // Status styling
-    Color budgetStatusColor = AppColors.primaryAccent;
-    String budgetStatusText = "Optimal spending pace";
-    if (totalSpent == 0) {
-      budgetStatusText = "No expenses logged yet";
-    } else if (budgetUsagePercent >= 1.0) {
-      budgetStatusColor = AppColors.danger;
-      budgetStatusText = "Over budget limit!";
-    } else if (budgetUsagePercent >= 0.8) {
-      budgetStatusColor = AppColors.accentWarning;
-      budgetStatusText = "Approaching budget limit";
+    Color budgetStatusColor = const Color(0xFF2EA072);
+    String budgetStatusText = "No expenses logged yet";
+    if (totalSpent > 0) {
+      if (budgetUsagePercent >= 1.0) {
+        budgetStatusColor = AppColors.danger;
+        budgetStatusText = "Budget exceeded! 🚨";
+      } else if (budgetUsagePercent >= 0.8) {
+        budgetStatusColor = AppColors.accentWarning;
+        budgetStatusText = "Careful! Approaching limit ⚠️";
+      } else {
+        budgetStatusColor = const Color(0xFF2EA072);
+        budgetStatusText = "You're staying on track! 👍";
+      }
     }
 
-    // Notifications check count
+    // Notification count check
     int notificationCount = 0;
     if (overallLimit > 0 && totalSpent >= overallLimit) notificationCount++;
     for (var s in categorySummaries) {
@@ -76,359 +153,178 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         notificationCount++;
       }
     }
-    notificationCount += recurringBills.length;
-
-    // Top spending category for Hero featured block
-    final sortedSummaries = List<CategorySummary>.from(categorySummaries)
-      ..sort((a, b) => b.spent.compareTo(a.spent));
-    final CategorySummary? topCategory = sortedSummaries.isNotEmpty && sortedSummaries.first.spent > 0
-        ? sortedSummaries.first
-        : null;
 
     return Scaffold(
+      backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xFFF9F9F8),
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Personalized Header Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      // User Avatar with Status Indicator
-                      Stack(
-                        children: [
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              gradient: AppColors.primaryGradient,
-                              shape: BoxShape.circle,
-                              boxShadow: AppShadows.softLight,
-                            ),
-                            child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 12.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1. TOP HEADER BAR
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Avatar & User Info
+                    Row(
+                      children: [
+                        Stack(
+                          children: [
+                            Container(
+                              width: 46,
+                              height: 46,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF073826),
+                                shape: BoxShape.circle,
+                              ),
+                              alignment: Alignment.center,
                               child: Text(
-                                settings.userName.isNotEmpty ? settings.userName[0].toUpperCase() : 'U',
+                                (settings.userName.isNotEmpty ? settings.userName[0] : 'U').toUpperCase(),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 18,
+                                  fontSize: 20,
                                 ),
                               ),
                             ),
-                          ),
-                          Positioned(
-                            right: 0,
-                            bottom: 0,
-                            child: Container(
-                              width: 12,
-                              height: 12,
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryAccent,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: isDark ? AppColors.backgroundDark : AppColors.background,
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _getTimeGreeting(),
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              fontSize: 11,
-                              color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                            ),
-                          ),
-                          Text(
-                            settings.userName,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-
-                  // Month Selector Chip & Notification Bell
-                  Row(
-                    children: [
-                      BouncingButton(
-                        onTap: () => _showMonthSelector(context),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                          decoration: BoxDecoration(
-                            color: isDark ? AppColors.surfaceCardDark : Colors.white,
-                            borderRadius: BorderRadius.circular(100),
-                            border: Border.all(
-                              color: isDark ? AppColors.borderDark : AppColors.border,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.calendar_today_outlined, size: 13, color: AppColors.primaryAccent),
-                              const SizedBox(width: 6),
-                              Text(
-                                DateFormat('MMM yyyy').format(monthDateTime),
-                                style: theme.textTheme.labelLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              const Icon(Icons.keyboard_arrow_down_rounded, size: 14),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Notification Bell Button
-                      Stack(
-                        children: [
-                          BouncingButton(
-                            onTap: () => _showNotificationsSheet(context),
-                            child: Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: isDark ? AppColors.surfaceCardDark : Colors.white,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: isDark ? AppColors.borderDark : AppColors.border,
-                                ),
-                              ),
-                              child: const Icon(Icons.notifications_none_rounded, size: 18),
-                            ),
-                          ),
-                          if (notificationCount > 0)
                             Positioned(
                               right: 2,
-                              top: 2,
+                              bottom: 2,
                               child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.danger,
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2EA072),
                                   shape: BoxShape.circle,
-                                ),
-                                child: Text(
-                                  '$notificationCount',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
+                                  border: Border.all(
+                                    color: isDark ? AppColors.backgroundDark : const Color(0xFFF9F9F8),
+                                    width: 2,
                                   ),
                                 ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // 2. Hero SaaS Spending Card
-              PremiumCard(
-                padding: const EdgeInsets.all(22.0),
-                gradient: isDark ? AppColors.heroGradientDark : AppColors.primaryGradient,
-                boxShadow: AppShadows.heroGlow,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(100),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Icon(Icons.account_balance_wallet_outlined, size: 12, color: Colors.white),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Total Outflow',
-                                    style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
-                                  ),
-                                ],
                               ),
                             ),
                           ],
                         ),
-                        IconButton(
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          icon: Icon(
-                            _obscureAmount ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                            color: Colors.white.withOpacity(0.7),
-                            size: 18,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscureAmount = !_obscureAmount;
-                            });
-                          },
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _getGreeting(),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontSize: 13,
+                                color: isDark ? AppColors.textSecondaryDark : const Color(0xFF757575),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            Text(
+                              settings.userName.isNotEmpty ? settings.userName : 'Umer Nisar',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? AppColors.textPrimaryDark : const Color(0xFF1E2522),
+                              ),
+                            ),
+                            const SizedBox(height: 1),
+                            Text(
+                              'Stay on track! 💪',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? AppColors.textSecondaryDark : const Color(0xFF8C8C8C),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
-                    Text(
-                      _obscureAmount
-                          ? '${settings.currency} ••••••'
-                          : '${settings.currency} ${NumberFormat('#,##0').format(totalSpent)}',
-                      style: theme.textTheme.displayLarge?.copyWith(
-                        fontSize: 34,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: -1.0,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
 
-                    // Burn rate tag & limit info
+                    // Currency & Month Selectors
                     Row(
                       children: [
-                        Text(
-                          overallLimit > 0
-                              ? 'of ${settings.currency} ${NumberFormat('#,##0').format(overallLimit)} limit'
-                              : 'No overall budget set',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white.withOpacity(0.75),
-                          ),
-                        ),
-                        const Spacer(),
-                        if (totalSpent > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        // Currency Selector Pill Button
+                        GestureDetector(
+                          onTap: () => _showCurrencySelector(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              '~ ${settings.currency} ${dailyBurnRate.toStringAsFixed(0)}/day',
-                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Modern Progress Bar
-                    if (overallLimit > 0) ...[
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: LinearProgressIndicator(
-                          value: budgetUsagePercent.clamp(0.0, 1.0),
-                          backgroundColor: Colors.white.withOpacity(0.15),
-                          valueColor: AlwaysStoppedAnimation<Color>(budgetStatusColor),
-                          minHeight: 6,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Icon(Icons.circle, size: 8, color: budgetStatusColor),
-                          const SizedBox(width: 6),
-                          Text(
-                            budgetStatusText,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: budgetStatusColor,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '${(budgetUsagePercent * 100).toStringAsFixed(0)}%',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white.withOpacity(0.9),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: 18),
-
-                    // Quick Action Shortcuts inside Hero Card
-                    Row(
-                      children: [
-                        Expanded(
-                          child: BouncingButton(
-                            onTap: widget.onAddExpenseTap,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
+                              color: isDark ? AppColors.surfaceCardDark : Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: isDark ? AppColors.borderDark : const Color(0xFFE5E5E3),
                               ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.add, size: 16, color: AppColors.primary),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Quick Add',
-                                    style: theme.textTheme.labelLarge?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.primary,
-                                    ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.02),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Text(
+                                  CurrencyFormatter.getCurrencyFlag(settings.currency),
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  settings.currency,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? AppColors.textPrimaryDark : const Color(0xFF333333),
                                   ),
-                                ],
-                              ),
+                                ),
+                                const SizedBox(width: 2),
+                                Icon(
+                                  Icons.keyboard_arrow_down,
+                                  size: 14,
+                                  color: isDark ? AppColors.textSecondaryDark : const Color(0xFF555555),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: BouncingButton(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const AiInsightsScreen()),
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.white.withOpacity(0.2)),
+                        const SizedBox(width: 6),
+
+                        // Month Pill Button
+                        GestureDetector(
+                          onTap: () => _showMonthSelector(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: isDark ? AppColors.surfaceCardDark : Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: isDark ? AppColors.borderDark : const Color(0xFFE5E5E3),
                               ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.auto_awesome, size: 14, color: Colors.white),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    'AI Insights',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                    ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.02),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.calendar_today_rounded, size: 13, color: Color(0xFF555555)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  monthName,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? AppColors.textPrimaryDark : const Color(0xFF333333),
                                   ),
-                                ],
-                              ),
+                                ),
+                                const SizedBox(width: 2),
+                                const Icon(Icons.keyboard_arrow_down, size: 14, color: Color(0xFF555555)),
+                              ],
                             ),
                           ),
                         ),
@@ -436,360 +332,632 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 28),
 
-              // 3. Section: Category Spending (Asymmetrical Layout)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Category Breakdown',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    '${categorySummaries.length} Categories',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
+                const SizedBox(height: 18),
 
-              if (categorySummaries.isEmpty)
-                const CustomEmptyState(
-                  title: 'No Categories Configured',
-                  description: 'Add your custom expense categories in Settings to get started.',
-                )
-              else ...[
-                // Top Featured Category Banner (if spend > 0)
-                if (topCategory != null) ...[
-                  PremiumCard(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => CategoryDetailScreen(category: topCategory.category),
-                        ),
-                      );
-                    },
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        CustomProgressRing(
-                          progress: topCategory.usagePercent,
-                          color: AppColors.getCategoryColor(topCategory.category.name, topCategory.category.colorHex),
-                          trackColor: isDark ? AppColors.borderDark : AppColors.border,
-                          strokeWidth: 4.5,
-                          size: 48,
-                          centerChild: Icon(
-                            _getIconData(topCategory.category.iconAsset),
-                            size: 20,
-                            color: AppColors.getCategoryColor(topCategory.category.name, topCategory.category.colorHex),
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    topCategory.category.name,
-                                    style: theme.textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  CustomPillBadge(
-                                    label: 'Highest Spend',
-                                    color: AppColors.getCategoryColor(topCategory.category.name, topCategory.category.colorHex),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${topCategory.expenseCount} entries recorded',
-                                style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              '${settings.currency} ${topCategory.spent.toStringAsFixed(0)}',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            if (topCategory.category.monthlyLimit != null)
-                              Text(
-                                'Limit: ${topCategory.category.monthlyLimit!.toStringAsFixed(0)}',
-                                style: theme.textTheme.labelLarge?.copyWith(fontSize: 10),
-                              ),
-                          ],
-                        ),
+                // 2. HERO TOTAL OUTFLOW CARD (Matching exact screenshot design)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF073826),
+                        Color(0xFF0C4D35),
                       ],
                     ),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF073826).withOpacity(0.3),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                ],
-
-                // Grid of Other Categories
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisExtent: 110,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemCount: categorySummaries.length,
-                  itemBuilder: (context, index) {
-                    final summary = categorySummaries[index];
-                    final catColor = AppColors.getCategoryColor(summary.category.name, summary.category.colorHex);
-
-                    return PremiumCard(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => CategoryDetailScreen(category: summary.category),
+                  child: Stack(
+                    children: [
+                      // Decorative background circular swoosh
+                      Positioned(
+                        right: -30,
+                        bottom: -40,
+                        child: Container(
+                          width: 180,
+                          height: 180,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withOpacity(0.04),
                           ),
-                        );
-                      },
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
+                        ),
+                      ),
+                      Positioned(
+                        right: 20,
+                        bottom: -60,
+                        child: Container(
+                          width: 140,
+                          height: 140,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withOpacity(0.03),
+                          ),
+                        ),
+                      ),
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          // Top Outflow tag & Eye button
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Container(
-                                width: 34,
-                                height: 34,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: catColor.withOpacity(0.12),
+                                  color: Colors.white.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: const [
+                                    Icon(Icons.output_rounded, size: 14, color: Colors.white),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'Total Outflow',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                constraints: const BoxConstraints(),
+                                padding: EdgeInsets.zero,
+                                icon: Icon(
+                                  _obscureAmount ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                  color: Colors.white70,
+                                  size: 20,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscureAmount = !_obscureAmount;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Main Amount Text
+                          Text(
+                            _obscureAmount
+                                ? '${settings.currency} ••••••'
+                                : CurrencyFormatter.format(totalSpent, settings.currency, decimalDigits: 0),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.w800,
+                              fontFamily: 'Space Grotesk',
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+
+                          // Budget Limit text
+                          Text(
+                            'of ${CurrencyFormatter.format(overallLimit, settings.currency, decimalDigits: 0)} limit',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.75),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Progress Bar
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: budgetUsagePercent.clamp(0.0, 1.0),
+                                    backgroundColor: Colors.white.withOpacity(0.18),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      budgetUsagePercent > 1.0 ? const Color(0xFFFF5252) : const Color(0xFF2EA072),
+                                    ),
+                                    minHeight: 5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                '${(budgetUsagePercent * 100).toInt()}%',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Status indicator line
+                          Row(
+                            children: [
+                              Container(
+                                width: 7,
+                                height: 7,
+                                decoration: BoxDecoration(
+                                  color: budgetStatusColor,
                                   shape: BoxShape.circle,
                                 ),
-                                child: Icon(
-                                  _getIconData(summary.category.iconAsset),
-                                  size: 16,
-                                  color: catColor,
-                                ),
                               ),
+                              const SizedBox(width: 6),
                               Text(
-                                '${summary.percentage.toStringAsFixed(0)}%',
+                                budgetStatusText,
                                 style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: summary.percentage >= 100 ? AppColors.danger : catColor,
+                                  color: budgetStatusColor,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
                           ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                summary.category.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${settings.currency} ${summary.spent.toStringAsFixed(0)}',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ],
-              const SizedBox(height: 28),
+                          const SizedBox(height: 18),
 
-              // 4. Spending Distribution Pie Chart
-              if (expenses.isNotEmpty) ...[
-                Text(
-                  'Spending Distribution',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Column(
-                  children: sortedSummaries.take(4).map((summary) {
-                    final catColor = AppColors.getCategoryColor(summary.category.name, summary.category.colorHex);
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                          // Action Buttons Row inside Hero Card
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                summary.category.name,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: widget.onAddExpenseTap,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: const Color(0xFF073826),
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(100),
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.add_rounded, size: 18, color: Color(0xFF073826)),
+                                  label: const Text(
+                                    'Quick Add',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ),
                               ),
-                              Text(
-                                '${settings.currency} ${summary.spent.toStringAsFixed(0)}',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontFamily: 'Space Grotesk',
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _showBudgetGoalsSheet(context),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white.withOpacity(0.12),
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(100),
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.track_changes_rounded, size: 18, color: Colors.white),
+                                  label: const Text(
+                                    'Goals & Budget',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          CustomProgressBar(
-                            progress: totalSpent > 0 ? (summary.spent / totalSpent) : 0.0,
-                            color: catColor,
-                          ),
                         ],
                       ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 28),
-              ],
-
-              // 5. Recent Activity Timeline
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Recent Activity',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    ],
                   ),
-                  if (expenses.isNotEmpty)
+                ),
+                const SizedBox(height: 16),
+
+                // 3. QUICK ACTIONS ROW (4 Cards matching exact screenshot layout)
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.surfaceCardDark : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildQuickActionItem(
+                        icon: Icons.add_rounded,
+                        bgColor: const Color(0xFFE8F5E9),
+                        iconColor: const Color(0xFF073826),
+                        label: 'Add Expense',
+                        onTap: widget.onAddExpenseTap,
+                        isDark: isDark,
+                      ),
+                      _buildQuickActionItem(
+                        icon: Icons.description_outlined,
+                        bgColor: const Color(0xFFF0EAFA),
+                        iconColor: const Color(0xFF6B4EFF),
+                        label: 'Reports',
+                        onTap: () {
+                          if (widget.onNavigateTab != null) widget.onNavigateTab!(2);
+                        },
+                        isDark: isDark,
+                      ),
+                      _buildQuickActionItem(
+                        icon: Icons.history_rounded,
+                        bgColor: const Color(0xFFFDF0E6),
+                        iconColor: const Color(0xFFE67E22),
+                        label: 'History',
+                        onTap: () {
+                          if (widget.onNavigateTab != null) widget.onNavigateTab!(1);
+                        },
+                        isDark: isDark,
+                      ),
+                      _buildQuickActionItem(
+                        icon: Icons.track_changes_outlined,
+                        bgColor: const Color(0xFFE6F5F3),
+                        iconColor: const Color(0xFF00897B),
+                        label: 'Goals',
+                        onTap: () => _showBudgetGoalsSheet(context),
+                        isDark: isDark,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 22),
+
+                // 4. CATEGORY BREAKDOWN SECTION
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
                     Text(
-                      '${expenses.length} Transactions',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                      'Category Breakdown',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppColors.textPrimaryDark : const Color(0xFF1E2522),
                       ),
                     ),
-                ],
-              ),
-              const SizedBox(height: 14),
-
-              if (expenses.isEmpty)
-                CustomEmptyState(
-                  title: 'No Expenses Yet',
-                  description: 'Start building your financial ledger by tapping the button below.',
-                  buttonText: 'Add First Expense',
-                  onButtonPressed: widget.onAddExpenseTap,
-                )
-              else
-                RecentEntriesList(
-                  expenses: expenses.take(6).toList(),
-                  categories: ref.watch(categoriesProvider),
-                  currency: settings.currency,
+                    Text(
+                      '${categorySummaries.length} Categories',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? AppColors.textSecondaryDark : const Color(0xFF888888),
+                      ),
+                    ),
+                  ],
                 ),
-            ],
+                const SizedBox(height: 12),
+
+                SizedBox(
+                  height: 164,
+                  child: categorySummaries.isEmpty
+                      ? Center(
+                          child: Text(
+                            'No categories created yet',
+                            style: TextStyle(
+                              color: isDark ? AppColors.textSecondaryDark : const Color(0xFF888888),
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: categorySummaries.length,
+                          itemBuilder: (context, index) {
+                            final summary = categorySummaries[index];
+                            final isSelected = _selectedCategoryHighlight == summary.category.id;
+                            return CategoryProgressCard(
+                              category: summary.category,
+                              spent: summary.spent,
+                              limit: summary.category.monthlyLimit ?? 0.0,
+                              isSelected: isSelected,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => CategoryDetailScreen(
+                                      category: summary.category,
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                ),
+                const SizedBox(height: 24),
+
+                // 5. RECENT ACTIVITY SECTION
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Recent Activity',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppColors.textPrimaryDark : const Color(0xFF1E2522),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        if (widget.onNavigateTab != null) widget.onNavigateTab!(1);
+                      },
+                      child: const Text(
+                        'View All',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF073826),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Recent entries list or Custom Empty State Illustration
+                if (expenses.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.surfaceCardDark : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        const ClipboardEmptyIllustration(),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No Expenses Yet',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? AppColors.textPrimaryDark : const Color(0xFF1E2522),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Start building your financial ledger by\ntapping the button below.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isDark ? AppColors.textSecondaryDark : const Color(0xFF757575),
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
+                          onPressed: widget.onAddExpenseTap,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF073826),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(100),
+                            ),
+                          ),
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text(
+                            'Add First Expense',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  RecentEntriesList(
+                    expenses: _selectedCategoryHighlight == null
+                        ? expenses
+                        : expenses.where((e) => e.categoryId == _selectedCategoryHighlight).toList(),
+                    categories: categories,
+                    onExpenseTap: (exp) => _showDeleteConfirmation(context, exp),
+                  ),
+                const SizedBox(height: 90),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  IconData _getIconData(String iconAsset) {
-    switch (iconAsset) {
-      case 'local_gas_station':
-        return Icons.local_gas_station;
-      case 'restaurant':
-        return Icons.restaurant;
-      case 'home':
-        return Icons.home;
-      case 'phone_android':
-        return Icons.phone_android;
-      case 'two_wheeler':
-        return Icons.two_wheeler;
-      case 'shopping_bag':
-        return Icons.shopping_bag;
-      case 'medical_services':
-        return Icons.medical_services;
-      case 'receipt_long':
-        return Icons.receipt_long;
-      default:
-        return Icons.category_outlined;
-    }
+  Widget _buildQuickActionItem({
+    required IconData icon,
+    required Color bgColor,
+    required Color iconColor,
+    required String label,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: isDark ? iconColor.withOpacity(0.2) : bgColor,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, color: iconColor, size: 24),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isDark ? AppColors.textPrimaryDark : const Color(0xFF333333),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showMonthSelector(BuildContext context) {
-    final selectedMonth = ref.read(selectedMonthProvider);
-    final now = DateTime.now();
-
-    final List<String> monthKeys = [];
-    for (int i = 0; i < 12; i++) {
-      final d = DateTime(now.year, now.month - i, 1);
-      monthKeys.add(DateFormat('yyyy-MM').format(d));
+    final allExpenses = ref.read(expensesProvider);
+    final Set<String> monthsSet = {
+      DateFormat('yyyy-MM').format(DateTime.now()),
+    };
+    for (var exp in allExpenses) {
+      monthsSet.add(DateFormat('yyyy-MM').format(exp.date));
     }
+    final months = monthsSet.toList()..sort((a, b) => b.compareTo(a));
+
 
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'Select Calendar Period',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: months.length,
+            itemBuilder: (context, index) {
+              final month = months[index];
+              final date = DateTime.parse('$month-01');
+              final formattedStr = DateFormat('MMMM yyyy').format(date);
+              final isSelected = ref.watch(selectedMonthProvider) == month;
+
+              return ListTile(
+                title: Text(
+                  formattedStr,
+                  style: TextStyle(
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected ? const Color(0xFF073826) : null,
+                  ),
                 ),
-              ),
-              const Divider(height: 1),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: monthKeys.map((mk) {
-                    final d = DateTime.parse('$mk-01');
-                    final label = DateFormat('MMMM yyyy').format(d);
-                    final isSelected = selectedMonth == mk;
-                    return ListTile(
-                      title: Text(label, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-                      trailing: isSelected ? const Icon(Icons.check_circle, color: AppColors.primaryAccent) : null,
-                      onTap: () {
-                        ref.read(selectedMonthProvider.notifier).state = mk;
-                        Navigator.pop(context);
-                      },
+                trailing: isSelected ? const Icon(Icons.check_circle, color: Color(0xFF073826)) : null,
+                onTap: () {
+                  ref.read(selectedMonthProvider.notifier).state = month;
+                  Navigator.pop(context);
+                },
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  void _showBudgetGoalsSheet(BuildContext context) {
+    final settings = ref.read(appSettingsProvider);
+    final controller = TextEditingController(
+      text: settings.overallMonthlyLimit?.toStringAsFixed(0) ?? '55000',
+    );
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            top: 20,
+            left: 20,
+            right: 20,
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Monthly Spending Goal',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text('Set your target monthly limit to track budget health.'),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Monthly Limit (${settings.currency})',
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () {
+                    final val = double.tryParse(controller.text) ?? 55000.0;
+                    ref.read(appSettingsProvider.notifier).updateSettings(
+                      settings.copyWith(overallMonthlyLimit: val),
                     );
-                  }).toList(),
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Budget limit updated successfully!'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF073826),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Save Target'),
                 ),
-              ),
-              const SizedBox(height: 12),
-            ],
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         );
       },
@@ -797,125 +965,183 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _showNotificationsSheet(BuildContext context) {
-    final categorySummaries = ref.read(categorySummariesProvider);
-    final recurringBills = ref.read(recurringExpensesProvider);
-    final settings = ref.read(appSettingsProvider);
-    final totalSpent = ref.read(totalSpentProvider);
-
-    final List<Widget> alerts = [];
-
-    // Overall budget check
-    if ((settings.overallMonthlyLimit ?? 0) > 0 && totalSpent >= settings.overallMonthlyLimit!) {
-      alerts.add(
-        _buildNotificationTile(
-          context,
-          icon: Icons.warning_amber_rounded,
-          color: AppColors.danger,
-          title: 'Overall Budget Exceeded',
-          description: 'Total spend (${settings.currency} ${totalSpent.toStringAsFixed(0)}) exceeded set limit.',
-        ),
-      );
-    }
-
-    // Category limits check
-    for (var s in categorySummaries) {
-      if ((s.category.monthlyLimit ?? 0) > 0 && s.spent >= s.category.monthlyLimit!) {
-        alerts.add(
-          _buildNotificationTile(
-            context,
-            icon: Icons.pie_chart_outline,
-            color: AppColors.accentWarning,
-            title: '${s.category.name} Budget Reached',
-            description: 'Spent ${settings.currency} ${s.spent.toStringAsFixed(0)} of limit ${s.category.monthlyLimit!.toStringAsFixed(0)}.',
-          ),
-        );
-      }
-    }
-
-    // Recurring items check
-    for (var r in recurringBills) {
-      alerts.add(
-        _buildNotificationTile(
-          context,
-          icon: Icons.access_time_rounded,
-          color: AppColors.info,
-          title: 'Upcoming Recurring Bill: ${r.label}',
-          description: 'Amount: ${settings.currency} ${r.amount.toStringAsFixed(0)} due on Day ${r.dueDay} of month.',
-        ),
-      );
-    }
-
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Notifications & Budget Alerts',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                if (alerts.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24.0),
-                    child: Center(
-                      child: Text('No active alerts. All spending is within budget limits!'),
-                    ),
-                  )
-                else
-                  Flexible(
-                    child: ListView(
-                      shrinkWrap: true,
-                      children: alerts,
-                    ),
-                  ),
-                const SizedBox(height: 12),
-              ],
-            ),
+        return const Padding(
+          padding: EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.check_circle_outline_rounded, size: 48, color: Color(0xFF2EA072)),
+              SizedBox(height: 12),
+              Text(
+                'All Clear!',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 6),
+              Text(
+                'No pending budget alerts or bill reminders.',
+                style: TextStyle(color: Colors.grey),
+              ),
+              SizedBox(height: 16),
+            ],
           ),
         );
       },
     );
   }
 
-  Widget _buildNotificationTile(
-    BuildContext context, {
-    required IconData icon,
-    required Color color,
-    required String title,
-    required String description,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
-      child: Row(
+  void _showDeleteConfirmation(BuildContext context, Expense expense) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete Expense'),
+          content: Text('Are you sure you want to remove "${expense.note}"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger, foregroundColor: Colors.white),
+              onPressed: () {
+                ref.read(expensesProvider.notifier).deleteExpense(expense.id);
+                Navigator.pop(context);
+              },
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// CUSTOM ILLUSTRATION WIDGET (Matching exact Clipboard + Plant + Sparkles illustration in screenshot)
+class ClipboardEmptyIllustration extends StatelessWidget {
+  const ClipboardEmptyIllustration({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 100,
+      height: 100,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          Icon(icon, color: color, size: 22),
-          const SizedBox(width: 12),
-          Expanded(
+          // Background soft circle
+          Container(
+            width: 90,
+            height: 90,
+            decoration: const BoxDecoration(
+              color: Color(0xFFD3EBE1),
+              shape: BoxShape.circle,
+            ),
+          ),
+          // Clipboard shape
+          Container(
+            width: 48,
+            height: 58,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF073826), width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF073826).withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 13)),
-                const SizedBox(height: 2),
-                Text(description, style: const TextStyle(fontSize: 12)),
+                // Top clip bar
+                Container(
+                  width: 22,
+                  height: 6,
+                  margin: const EdgeInsets.only(top: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF073826),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Lines inside clipboard
+                _buildLine(30),
+                const SizedBox(height: 4),
+                _buildLine(24),
+                const SizedBox(height: 4),
+                _buildLine(28),
+                const SizedBox(height: 4),
+                _buildLine(18),
               ],
             ),
           ),
+          // Potted plant on bottom left of clipboard
+          Positioned(
+            left: 18,
+            bottom: 16,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Container(
+                  width: 14,
+                  height: 14,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF073826),
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(3),
+                      bottomRight: Radius.circular(3),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Sparkle 1 (Top right)
+          const Positioned(
+            right: 18,
+            top: 14,
+            child: Text(
+              '✦',
+              style: TextStyle(
+                color: Color(0xFF073826),
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          // Sparkle 2 (Top left)
+          const Positioned(
+            left: 20,
+            top: 22,
+            child: Text(
+              '✦',
+              style: TextStyle(
+                color: Color(0xFF073826),
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLine(double width) {
+    return Container(
+      width: width,
+      height: 3,
+      decoration: BoxDecoration(
+        color: const Color(0xFF2EA072),
+        borderRadius: BorderRadius.circular(2),
       ),
     );
   }

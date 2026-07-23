@@ -5,9 +5,10 @@ import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../providers/app_providers.dart';
 import '../theme/app_theme.dart';
+import '../utils/currency_formatter.dart';
 import 'amount_input.dart';
 import 'category_chip.dart';
-import 'custom_card.dart';
+
 
 class QuickAddSheet extends ConsumerStatefulWidget {
   final String? initialCategoryId;
@@ -41,9 +42,12 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
     super.initState();
     _selectedCategoryId = widget.initialCategoryId;
     if (widget.initialAmount != null && widget.initialAmount! > 0) {
-      _amountController.text = widget.initialAmount!.toStringAsFixed(0);
+      final settings = ref.read(appSettingsProvider);
+      final displayVal = CurrencyFormatter.convert(widget.initialAmount!, settings.currency);
+      _amountController.text = displayVal.toStringAsFixed(0);
     }
   }
+
 
   @override
   void dispose() {
@@ -314,14 +318,20 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
     // Simulate 200ms delay for visual feedback/acknowledgement
     await Future.delayed(const Duration(milliseconds: 200));
 
+    final settings = ref.read(appSettingsProvider);
+    final double amountInQAR = (settings.currency == 'PKR' && _amount > 0)
+        ? (_amount / 74.03)
+        : _amount;
+
     final newExpense = Expense(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       categoryId: _selectedCategoryId!,
-      amount: _amount,
+      amount: amountInQAR,
       date: _selectedDate,
       note: _noteController.text.trim().isNotEmpty ? _noteController.text.trim() : null,
       isFromRecurring: widget.isFromRecurring,
     );
+
 
     await ref.read(expensesProvider.notifier).addExpense(newExpense);
 
@@ -596,45 +606,37 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
                     const SizedBox(height: 32),
                     
                     // Save Button
-                    BouncingButton(
-                      onTap: (_amount <= 0.0 || _isSaving) ? null : _saveExpense,
-                      child: Container(
-                        width: double.infinity,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: (_amount <= 0.0 || _isSaving)
-                              ? AppColors.primary.withOpacity(0.35)
-                              : AppColors.primary,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: (_amount > 0.0 && !_isSaving) ? AppShadows.heroGlow : null,
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: (_amount <= 0.0 || _isSaving) ? null : _saveExpense,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          disabledBackgroundColor: AppColors.primary.withOpacity(0.40),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          elevation: 0,
                         ),
-                        child: Center(
-                          child: _isSaving
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.check_rounded, color: Colors.white, size: 20),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'Save Expense',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontFamily: 'Inter',
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
+                        child: _isSaving
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
                                 ),
-                        ),
+                              )
+                            : const Text(
+                                'Save Expense',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                       ),
                     ),
                     const SizedBox(height: 24),

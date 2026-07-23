@@ -6,7 +6,9 @@ import '../../models/models.dart';
 import '../../providers/app_providers.dart';
 import '../../theme/app_theme.dart';
 import '../../services/notification_service.dart';
+import '../../utils/currency_formatter.dart';
 import '../../widgets/quick_add_sheet.dart';
+
 import '../category_detail/category_detail_screen.dart';
 
 class RecurringExpensesScreen extends ConsumerStatefulWidget {
@@ -38,9 +40,14 @@ class _RecurringExpensesScreenState extends ConsumerState<RecurringExpensesScree
     final isDark = theme.brightness == Brightness.dark;
     
     final labelController = TextEditingController(text: editItem?.label ?? '');
+    final settings = ref.read(appSettingsProvider);
+    final double displayAmount = editItem != null
+        ? CurrencyFormatter.convert(editItem.amount, settings.currency)
+        : 0.0;
     final amountController = TextEditingController(
-      text: editItem != null ? editItem.amount.toStringAsFixed(0) : '',
+      text: editItem != null ? displayAmount.toStringAsFixed(0) : '',
     );
+
     
     int selectedDay = editItem?.dueDay ?? 1;
     final categories = ref.read(categoriesProvider);
@@ -252,9 +259,9 @@ class _RecurringExpensesScreenState extends ConsumerState<RecurringExpensesScree
                         child: ElevatedButton(
                           onPressed: () async {
                             final label = labelController.text.trim();
-                            final amount = double.tryParse(amountController.text.trim()) ?? 0.0;
+                            final enteredAmount = double.tryParse(amountController.text.trim()) ?? 0.0;
                             
-                            if (label.isEmpty || amount <= 0) {
+                            if (label.isEmpty || enteredAmount <= 0) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text('Please enter a valid label and amount.'),
@@ -264,11 +271,15 @@ class _RecurringExpensesScreenState extends ConsumerState<RecurringExpensesScree
                               return;
                             }
 
+                            final double amountInQAR = (settings.currency == 'PKR' && enteredAmount > 0)
+                                ? (enteredAmount / 74.03)
+                                : enteredAmount;
+
                             final id = editItem?.id ?? DateTime.now().millisecondsSinceEpoch.toString();
                             final newItem = RecurringExpense(
                               id: id,
                               categoryId: selectedCatId,
-                              amount: amount,
+                              amount: amountInQAR,
                               dueDay: selectedDay,
                               label: label,
                             );
@@ -276,15 +287,18 @@ class _RecurringExpensesScreenState extends ConsumerState<RecurringExpensesScree
                             // Save in Hive
                             await ref.read(recurringExpensesProvider.notifier).addRecurringExpense(newItem);
 
+                            final formattedBillStr = CurrencyFormatter.format(amountInQAR, settings.currency, decimalDigits: 0);
+
                             // Schedule local notification
                             await NotificationService.scheduleMonthlyNotification(
                               id: id,
                               title: 'Bill Due: $label',
-                              body: 'Your monthly payment of Rs. ${amount.toStringAsFixed(0)} is due today.',
+                              body: 'Your monthly payment of $formattedBillStr is due today.',
                               dueDay: selectedDay,
                               categoryId: selectedCatId,
-                              amount: amount,
+                              amount: amountInQAR,
                             );
+
 
                             if (context.mounted) {
                               Navigator.pop(context);
@@ -591,7 +605,7 @@ class _RecurringExpensesScreenState extends ConsumerState<RecurringExpensesScree
                                   ],
                                 ),
                                 Text(
-                                  '${settings.currency} ${NumberFormat('#,##0').format(item.amount)}',
+                                  CurrencyFormatter.format(item.amount, settings.currency, decimalDigits: 0),
                                   style: theme.textTheme.titleMedium?.copyWith(
                                     fontFamily: 'Space Grotesk',
                                     fontWeight: FontWeight.bold,

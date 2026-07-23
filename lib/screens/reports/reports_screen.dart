@@ -10,9 +10,8 @@ import '../../models/models.dart';
 import '../../providers/app_providers.dart';
 import '../../services/hive_service.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/custom_card.dart';
+import '../../utils/currency_formatter.dart';
 import '../monthly_comparison/monthly_comparison_screen.dart';
-import 'ai_insights_screen.dart';
 
 class ReportsScreen extends ConsumerStatefulWidget {
   const ReportsScreen({super.key});
@@ -65,7 +64,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     final entriesTrendDiff = totalEntries - prevEntries;
     final prevMonthName = DateFormat('MMM').format(prevMonthDate);
 
-
     // Sort category summaries by spent amount descending
     final sortedSummaries = List<CategorySummary>.from(categorySummaries)
       ..sort((a, b) => b.spent.compareTo(a.spent));
@@ -103,26 +101,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                     ),
                     Row(
                       children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: isDark ? AppColors.borderDark : AppColors.border,
-                            ),
-                            shape: BoxShape.circle,
-                          ),
-                          child: IconButton(
-                            icon: const Icon(Icons.auto_awesome, size: 20, color: AppColors.primary),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const AiInsightsScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
                         Container(
                           decoration: BoxDecoration(
                             border: Border.all(
@@ -193,7 +171,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                     ),
                     ElevatedButton.icon(
                       onPressed: () {
-                        // Quick toast reset
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Filters reset'),
@@ -225,7 +202,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                     Expanded(
                       child: _buildMetricCard(
                         title: 'Total Spent',
-                        value: '${settings.currency} ${totalSpent.toStringAsFixed(0)}',
+                        value: CurrencyFormatter.format(totalSpent, settings.currency, decimalDigits: 0),
                         trend: prevMonthSpent == 0 ? 'First period' : '${spentTrendPercent >= 0 ? "+" : ""}${spentTrendPercent.toStringAsFixed(0)}% vs $prevMonthName',
                         icon: Icons.account_balance_wallet_outlined,
                         theme: theme,
@@ -236,7 +213,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                     Expanded(
                       child: _buildMetricCard(
                         title: 'Daily Average',
-                        value: '${settings.currency} ${dailyAverage.toStringAsFixed(0)}',
+                        value: CurrencyFormatter.format(dailyAverage, settings.currency, decimalDigits: 0),
                         trend: prevMonthSpent == 0 ? 'First period' : '${dailyAvgTrendPercent >= 0 ? "+" : ""}${dailyAvgTrendPercent.toStringAsFixed(0)}% vs $prevMonthName',
                         icon: Icons.bar_chart_outlined,
                         theme: theme,
@@ -256,6 +233,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                     ),
                   ],
                 ),
+
 
                 const SizedBox(height: 24),
 
@@ -353,7 +331,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                           ],
                         ),
                         const SizedBox(height: 24),
-                        _buildBarChartSection(theme, isDark),
+                        _buildBarChartSection(theme, isDark, settings),
                       ],
                     ),
                   ),
@@ -458,7 +436,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
                                     Text(
-                                      '${settings.currency} ${summary.spent.toStringAsFixed(0)}',
+                                      CurrencyFormatter.format(summary.spent, settings.currency, decimalDigits: 0),
                                       style: theme.textTheme.bodyMedium?.copyWith(
                                         fontFamily: 'Space Grotesk',
                                         fontWeight: FontWeight.bold,
@@ -567,15 +545,28 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     required ThemeData theme,
     required bool isDark,
   }) {
-    final isNegative = trend.contains('-');
-    return PremiumCard(
-      padding: const EdgeInsets.all(12),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceCardDark : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 14, color: AppColors.primaryAccent),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.06),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 14, color: AppColors.primary),
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -600,10 +591,14 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 6),
-          CustomPillBadge(
-            label: trend,
-            color: isNegative ? AppColors.danger : AppColors.primaryAccent,
+          const SizedBox(height: 4),
+          Text(
+            trend,
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+              color: trend.contains('-') ? AppColors.danger : AppColors.primary,
+            ),
           ),
         ],
       ),
@@ -669,7 +664,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${settings.currency} ${totalSpent.toStringAsFixed(0)}',
+                        CurrencyFormatter.format(totalSpent, settings.currency, decimalDigits: 0),
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontFamily: 'Space Grotesk',
                           fontSize: 15,
@@ -756,7 +751,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     );
   }
 
-  Widget _buildBarChartSection(ThemeData theme, bool isDark) {
+  Widget _buildBarChartSection(ThemeData theme, bool isDark, AppSettings settings) {
     int monthCount = 6;
     if (_selectedMonthRange == 'Last 3 Months') monthCount = 3;
     if (_selectedMonthRange == 'Last 12 Months') monthCount = 12;
@@ -830,7 +825,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               getTooltipItem: (group, groupIndex, rod, rodIndex) {
                 if (rod.toY == 0) return null;
                 return BarTooltipItem(
-                  NumberFormat.compact().format(rod.toY),
+                  CurrencyFormatter.formatCompact(rod.toY, settings.currency),
                   theme.textTheme.labelLarge!.copyWith(
                     fontFamily: 'Space Grotesk',
                     fontSize: 9,
@@ -984,13 +979,16 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
 
   void _showMonthSelector(BuildContext context) {
     final selectedMonth = ref.read(selectedMonthProvider);
-    final now = DateTime.now();
+    final allExpenses = ref.read(expensesProvider);
 
-    final List<String> monthKeys = [];
-    for (int i = 0; i < 12; i++) {
-      final d = DateTime(now.year, now.month - i, 1);
-      monthKeys.add(DateFormat('yyyy-MM').format(d));
+    final Set<String> monthSet = {
+      DateFormat('yyyy-MM').format(DateTime.now()),
+    };
+    for (var exp in allExpenses) {
+      monthSet.add(DateFormat('yyyy-MM').format(exp.date));
     }
+    final List<String> monthKeys = monthSet.toList()..sort((a, b) => b.compareTo(a));
+
 
     showModalBottomSheet(
       context: context,
@@ -1108,7 +1106,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                     children: [
                       pw.Text('Total Spent', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
                       pw.SizedBox(height: 4),
-                       pw.Text('${settings.currency} ${totalSpent.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+                      pw.Text(CurrencyFormatter.format(totalSpent, settings.currency), style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+
                     ],
                   ),
                 ),
@@ -1168,8 +1167,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(8),
-                         child: pw.Text('${settings.currency} ${entry.value.toStringAsFixed(2)}'),
+                        child: pw.Text(CurrencyFormatter.format(entry.value, settings.currency)),
                       ),
+
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(8),
                         child: pw.Text('${percent.toStringAsFixed(1)}%'),
@@ -1230,8 +1230,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(6),
-                        child: pw.Text(exp.amount.toStringAsFixed(2), style: const pw.TextStyle(fontSize: 8)),
+                        child: pw.Text(CurrencyFormatter.convert(exp.amount, settings.currency).toStringAsFixed(2), style: const pw.TextStyle(fontSize: 8)),
                       ),
+
                     ],
                   );
                 }),

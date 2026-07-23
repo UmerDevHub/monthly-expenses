@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../services/hive_service.dart';
+import '../utils/currency_formatter.dart';
 
 // Selected Month Provider (Format: "yyyy-MM")
 final selectedMonthProvider = StateProvider<String>((ref) {
@@ -64,10 +65,6 @@ class HistoryLogNotifier extends StateNotifier<List<HistoryRecord>> {
   Future<void> clearHistory() async {
     await HiveService.historyBox.clear();
     state = [];
-  }
-
-  Future<void> clearAllLogs() async {
-    await clearHistory();
   }
 }
 
@@ -142,10 +139,11 @@ class ExpensesNotifier extends StateNotifier<List<Expense>> {
       orElse: () => Category(id: '', name: 'Expense', iconAsset: '', colorHex: ''),
     );
     final currency = _ref.read(appSettingsProvider).currency;
+    final formattedAmt = CurrencyFormatter.format(expense.amount, currency, decimalDigits: 0);
 
     _ref.read(historyLogProvider.notifier).addLog(
       title: 'Expense Added',
-      description: '$currency ${expense.amount.toStringAsFixed(0)} in ${cat.name}${expense.note != null && expense.note!.isNotEmpty ? " (${expense.note})" : ""}',
+      description: '$formattedAmt in ${cat.name}${expense.note != null && expense.note!.isNotEmpty ? " (${expense.note})" : ""}',
       actionType: 'expense_added',
       colorHex: cat.colorHex,
     );
@@ -161,10 +159,11 @@ class ExpensesNotifier extends StateNotifier<List<Expense>> {
       orElse: () => Category(id: '', name: 'Expense', iconAsset: '', colorHex: ''),
     );
     final currency = _ref.read(appSettingsProvider).currency;
+    final formattedAmt = CurrencyFormatter.format(expense.amount, currency, decimalDigits: 0);
 
     _ref.read(historyLogProvider.notifier).addLog(
       title: 'Expense Updated',
-      description: '$currency ${expense.amount.toStringAsFixed(0)} in ${cat.name}',
+      description: '$formattedAmt in ${cat.name}',
       actionType: 'expense_edited',
       colorHex: cat.colorHex,
     );
@@ -177,12 +176,14 @@ class ExpensesNotifier extends StateNotifier<List<Expense>> {
     state = HiveService.expensesBox.values.toList();
 
     final currency = _ref.read(appSettingsProvider).currency;
+    final formattedAmt = CurrencyFormatter.format(amount, currency, decimalDigits: 0);
     _ref.read(historyLogProvider.notifier).addLog(
       title: 'Expense Deleted',
-      description: 'Removed expense of $currency ${amount.toStringAsFixed(0)}',
+      description: 'Removed expense of $formattedAmt',
       actionType: 'expense_deleted',
     );
   }
+
 }
 
 final expensesProvider = StateNotifierProvider<ExpensesNotifier, List<Expense>>((ref) {
@@ -213,17 +214,12 @@ class CategorySummary {
   final Category category;
   final double spent;
   final double percentage;
-  final int transactionsCount;
 
   CategorySummary({
     required this.category,
     required this.spent,
     required this.percentage,
-    this.transactionsCount = 0,
   });
-
-  double get usagePercent => percentage;
-  int get expenseCount => transactionsCount;
 }
 
 // Computed provider: Category-wise breakdown of expenses for selected month
@@ -283,9 +279,10 @@ class RecurringExpensesNotifier extends StateNotifier<List<RecurringExpense>> {
     state = HiveService.recurringBox.values.toList();
 
     final currency = _ref.read(appSettingsProvider).currency;
+    final formattedAmt = CurrencyFormatter.format(recurring.amount, currency, decimalDigits: 0);
     _ref.read(historyLogProvider.notifier).addLog(
       title: 'Recurring Bill Added',
-      description: 'Added "${recurring.label}" for $currency ${recurring.amount.toStringAsFixed(0)} (Due day ${recurring.dueDay})',
+      description: 'Added "${recurring.label}" for $formattedAmt (Due day ${recurring.dueDay})',
       actionType: 'recurring_added',
     );
   }
@@ -305,12 +302,14 @@ class RecurringExpensesNotifier extends StateNotifier<List<RecurringExpense>> {
 
   Future<void> markPaid(RecurringExpense item) async {
     final currency = _ref.read(appSettingsProvider).currency;
+    final formattedAmt = CurrencyFormatter.format(item.amount, currency, decimalDigits: 0);
     _ref.read(historyLogProvider.notifier).addLog(
       title: 'Bill Paid',
-      description: 'Paid recurring bill "${item.label}" of $currency ${item.amount.toStringAsFixed(0)}',
+      description: 'Paid recurring bill "${item.label}" of $formattedAmt',
       actionType: 'recurring_paid',
     );
   }
+
 }
 
 final recurringExpensesProvider = StateNotifierProvider<RecurringExpensesNotifier, List<RecurringExpense>>((ref) {

@@ -41,7 +41,7 @@ class HiveService {
           name: 'Petrol',
           iconAsset: 'assets/icons/petrol.svg',
           colorHex: '#C9822E',
-          monthlyLimit: 10000.0,
+          monthlyLimit: 500.0,
           isDefault: true,
         ),
         Category(
@@ -49,7 +49,7 @@ class HiveService {
           name: 'Khana',
           iconAsset: 'assets/icons/food.svg',
           colorHex: '#6B8E5A',
-          monthlyLimit: 15000.0,
+          monthlyLimit: 1000.0,
           isDefault: true,
         ),
         Category(
@@ -57,7 +57,7 @@ class HiveService {
           name: 'Room Rent',
           iconAsset: 'assets/icons/rent.svg',
           colorHex: '#5A7A9E',
-          monthlyLimit: 15000.0,
+          monthlyLimit: 1500.0,
           isDefault: true,
         ),
         Category(
@@ -65,7 +65,7 @@ class HiveService {
           name: 'Sim Bill',
           iconAsset: 'assets/icons/sim.svg',
           colorHex: '#9E7A5A',
-          monthlyLimit: 2000.0,
+          monthlyLimit: 200.0,
           isDefault: true,
         ),
         Category(
@@ -73,7 +73,7 @@ class HiveService {
           name: 'Bike Maintenance',
           iconAsset: 'assets/icons/bike.svg',
           colorHex: '#8E5A7A',
-          monthlyLimit: 4000.0,
+          monthlyLimit: 300.0,
           isDefault: true,
         ),
       ];
@@ -86,13 +86,14 @@ class HiveService {
     final settingsBox = Hive.box<AppSettings>(settingsBoxName);
     if (settingsBox.isEmpty) {
       final defaultSettings = AppSettings(
-        currency: 'Rs.',
-        overallMonthlyLimit: 55000.0,
+        currency: 'QAR',
+        overallMonthlyLimit: 5000.0,
         appLockEnabled: false,
         darkMode: false,
       );
       await settingsBox.put('app_settings', defaultSettings);
     }
+
   }
 
   static Box<Expense> get expensesBox => Hive.box<Expense>(expensesBoxName);

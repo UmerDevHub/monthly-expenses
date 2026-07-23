@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import '../../models/models.dart';
 import '../../providers/app_providers.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/custom_card.dart';
 
 class HistoryScreen extends ConsumerStatefulWidget {
   final VoidCallback onBackTap;
@@ -44,7 +43,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         if (_selectedFilter == 'Expenses' && !type.contains('expense')) return false;
         if (_selectedFilter == 'Categories' && !type.contains('category')) return false;
         if (_selectedFilter == 'Bills' && !type.contains('recurring')) return false;
-        if (_selectedFilter == 'Settings' && !type.contains('settings') && !type.contains('backup')) return false;
+        if (_selectedFilter == 'Settings' && !type.contains('settings')) return false;
       }
 
       if (_searchQuery.isNotEmpty) {
@@ -59,6 +58,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
     // Group logs by date
     final Map<String, List<HistoryRecord>> groupedLogs = {};
+    final now = DateTime.now();
+    final todayStr = DateFormat('yyyy-MM-dd').format(now);
+    final yesterdayStr = DateFormat('yyyy-MM-dd').format(now.subtract(const Duration(days: 1)));
+
     for (var log in filteredLogs) {
       final dateKey = DateFormat('yyyy-MM-dd').format(log.timestamp);
       if (!groupedLogs.containsKey(dateKey)) {
@@ -70,147 +73,130 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     final sortedDateKeys = groupedLogs.keys.toList()..sort((a, b) => b.compareTo(a));
 
     return Scaffold(
+      backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xFFF9F9F8),
       body: SafeArea(
         child: Column(
           children: [
-            // 1. Header Bar
+            // 1. Header Row
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 12.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  BouncingButton(
-                    onTap: widget.onBackTap,
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: isDark ? AppColors.surfaceCardDark : Colors.white,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: isDark ? AppColors.borderDark : AppColors.border),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.surfaceCardDark : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark ? AppColors.borderDark : const Color(0xFFE5E5E3),
                       ),
-                      child: const Icon(Icons.arrow_back_rounded, size: 20),
+                    ),
+                    child: IconButton(
+                      icon: Icon(Icons.arrow_back_rounded, size: 20, color: isDark ? Colors.white : Colors.black87),
+                      onPressed: widget.onBackTap,
                     ),
                   ),
                   Text(
                     'Activity History',
                     style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 20,
+                      color: isDark ? AppColors.textPrimaryDark : const Color(0xFF073826),
                     ),
                   ),
-                  if (historyLogs.isNotEmpty)
-                    BouncingButton(
-                      onTap: () => _confirmClearHistory(context),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppColors.danger.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(100),
-                          border: Border.all(color: AppColors.danger.withOpacity(0.3)),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.delete_outline_rounded, size: 14, color: AppColors.danger),
-                            SizedBox(width: 4),
-                            Text(
-                              'Clear',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.danger),
-                            ),
-                          ],
-                        ),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.surfaceCardDark : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark ? AppColors.borderDark : const Color(0xFFE5E5E3),
                       ),
-                    )
-                  else
-                    const SizedBox(width: 40),
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.danger),
+                      onPressed: historyLogs.isEmpty ? null : () => _confirmClearHistory(context),
+                    ),
+                  ),
                 ],
               ),
             ),
 
             // 2. Search Field
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 4.0),
               child: Container(
                 decoration: BoxDecoration(
                   color: isDark ? AppColors.surfaceCardDark : Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: isDark ? AppColors.borderDark : AppColors.border),
-                  boxShadow: AppShadows.softLight,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: TextField(
                   controller: _searchController,
-                  onChanged: (val) {
-                    setState(() {
-                      _searchQuery = val.trim();
-                    });
-                  },
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
-                  ),
+                  onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                  style: TextStyle(color: isDark ? AppColors.textPrimaryDark : const Color(0xFF222222)),
                   decoration: InputDecoration(
-                    hintText: 'Search actions, notes, amounts...',
-                    hintStyle: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                    ),
-                    prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.primaryAccent),
+                    hintText: 'Search activity logs...',
+                    hintStyle: TextStyle(fontSize: 14, color: isDark ? AppColors.textSecondaryDark : const Color(0xFF999999)),
+                    prefixIcon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFF073826)),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear_rounded, size: 18),
                             onPressed: () {
                               _searchController.clear();
-                              setState(() {
-                                _searchQuery = '';
-                              });
+                              setState(() => _searchQuery = '');
                             },
                           )
                         : null,
+                    filled: false,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
                   ),
                 ),
               ),
             ),
+            const SizedBox(height: 12),
 
             // 3. Filter Chips Row
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 18.0),
               child: Row(
                 children: ['All', 'Expenses', 'Categories', 'Bills', 'Settings'].map((filter) {
                   final isSelected = _selectedFilter == filter;
                   return Padding(
                     padding: const EdgeInsets.only(right: 8.0),
-                    child: BouncingButton(
-                      onTap: () {
-                        setState(() {
-                          _selectedFilter = filter;
-                        });
-                      },
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedFilter = filter),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? AppColors.primary
+                              ? const Color(0xFF073826)
                               : (isDark ? AppColors.surfaceCardDark : Colors.white),
-                          borderRadius: BorderRadius.circular(100),
+                          borderRadius: BorderRadius.circular(20),
                           border: Border.all(
                             color: isSelected
-                                ? AppColors.primary
-                                : (isDark ? AppColors.borderDark : AppColors.border),
+                                ? const Color(0xFF073826)
+                                : (isDark ? AppColors.borderDark : const Color(0xFFE5E5E3)),
                           ),
-                          boxShadow: isSelected ? AppShadows.heroGlow : null,
                         ),
                         child: Text(
                           filter,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                             color: isSelected
                                 ? Colors.white
-                                : (isDark ? AppColors.textSecondaryDark : AppColors.textSecondary),
+                                : (isDark ? AppColors.textPrimaryDark : const Color(0xFF444444)),
                           ),
                         ),
                       ),
@@ -219,69 +205,82 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 }).toList(),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 14),
 
-            // 4. Timeline List / Empty State
+            // 4. Main History Timeline List or Empty State
             Expanded(
-              child: filteredLogs.isEmpty
-                  ? CustomEmptyState(
-                      title: 'No Activity History',
-                      description: historyLogs.isEmpty
-                          ? 'Your actions (adding expenses, editing budgets) will automatically build an audit timeline here.'
-                          : 'No history logs found matching "$_searchQuery".',
-                      icon: Icons.history_rounded,
-                      buttonText: historyLogs.isEmpty ? 'Log First Expense' : null,
-                      onButtonPressed: historyLogs.isEmpty ? widget.onAddExpenseTap : null,
-                    )
-                  : ListView.builder(
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                      itemCount: sortedDateKeys.length,
-                      itemBuilder: (context, dateIdx) {
-                        final dateKey = sortedDateKeys[dateIdx];
-                        final dayLogs = groupedLogs[dateKey]!;
-                        final parsedDate = DateTime.parse(dateKey);
+              child: historyLogs.isEmpty
+                  ? _buildInitialEmptyState(theme, isDark)
+                  : filteredLogs.isEmpty
+                      ? _buildNoSearchResultState(theme, isDark)
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 18.0),
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: sortedDateKeys.length,
+                          itemBuilder: (context, idx) {
+                            final dateKey = sortedDateKeys[idx];
+                            final list = groupedLogs[dateKey]!;
+                            final parsedDate = DateTime.parse(dateKey);
 
-                        final now = DateTime.now();
-                        String dateHeader;
-                        if (DateFormat('yyyy-MM-dd').format(now) == dateKey) {
-                          dateHeader = 'Today';
-                        } else if (DateFormat('yyyy-MM-dd').format(now.subtract(const Duration(days: 1))) == dateKey) {
-                          dateHeader = 'Yesterday';
-                        } else {
-                          dateHeader = DateFormat('EEEE, dd MMMM yyyy').format(parsedDate);
-                        }
+                            String headerTitle = '';
+                            if (dateKey == todayStr) {
+                              headerTitle = 'Today • ${DateFormat('d MMMM').format(parsedDate)}';
+                            } else if (dateKey == yesterdayStr) {
+                              headerTitle = 'Yesterday • ${DateFormat('d MMMM').format(parsedDate)}';
+                            } else {
+                              headerTitle = DateFormat('d MMMM yyyy').format(parsedDate);
+                            }
 
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Date Section Header
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 4.0),
-                              child: Row(
-                                children: [
-                                  CustomPillBadge(
-                                    label: dateHeader,
-                                    color: AppColors.primaryAccent,
-                                    icon: Icons.calendar_month_outlined,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Divider(
-                                      color: isDark ? AppColors.borderDark : AppColors.border,
-                                      height: 1,
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8.0, bottom: 8.0, left: 4.0),
+                                  child: Text(
+                                    headerTitle,
+                                    style: theme.textTheme.labelMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: isDark ? AppColors.textSecondaryDark : const Color(0xFF757575),
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-
-                            // Day's Log Cards
-                            ...dayLogs.map((log) => _buildHistoryCard(context, log, isDark, theme)),
-                          ],
-                        );
-                      },
-                    ),
+                                ),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: isDark ? AppColors.surfaceCardDark : Colors.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: isDark ? AppColors.borderDark : const Color(0xFFF0F0EE),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.02),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ListView.separated(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    itemCount: list.length,
+                                    separatorBuilder: (_, __) => Divider(
+                                      height: 1,
+                                      indent: 16,
+                                      endIndent: 16,
+                                      color: isDark ? AppColors.borderDark : const Color(0xFFF2F2F0),
+                                    ),
+                                    itemBuilder: (context, subIdx) {
+                                      final record = list[subIdx];
+                                      return _buildHistoryRow(record, theme, isDark);
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                              ],
+                            );
+                          },
+                        ),
             ),
           ],
         ),
@@ -289,82 +288,159 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     );
   }
 
-  Widget _buildHistoryCard(BuildContext context, HistoryRecord log, bool isDark, ThemeData theme) {
-    IconData icon;
-    Color iconColor;
+  Widget _buildHistoryRow(HistoryRecord record, ThemeData theme, bool isDark) {
+    IconData icon = Icons.history_rounded;
+    Color iconColor = const Color(0xFF073826);
+    Color bgColor = const Color(0xFFE8F5E9);
 
-    final actionLower = log.actionType.toLowerCase();
-    if (actionLower.contains('add')) {
+    final type = record.actionType.toLowerCase();
+    if (type == 'expense_added') {
       icon = Icons.add_circle_outline_rounded;
-      iconColor = AppColors.primaryAccent;
-    } else if (actionLower.contains('delete') || actionLower.contains('clear')) {
+      iconColor = const Color(0xFF073826);
+      bgColor = const Color(0xFFE8F5E9);
+    } else if (type == 'expense_edited') {
+      icon = Icons.edit_note_rounded;
+      iconColor = const Color(0xFFE67E22);
+      bgColor = const Color(0xFFFFF3E0);
+    } else if (type == 'expense_deleted') {
       icon = Icons.delete_outline_rounded;
       iconColor = AppColors.danger;
-    } else if (actionLower.contains('edit') || actionLower.contains('update')) {
-      icon = Icons.edit_note_rounded;
-      iconColor = AppColors.accentWarning;
-    } else if (actionLower.contains('backup') || actionLower.contains('restore')) {
-      icon = Icons.cloud_sync_rounded;
-      iconColor = AppColors.info;
-    } else {
-      icon = Icons.receipt_long_rounded;
-      iconColor = AppColors.primary;
+      bgColor = const Color(0xFFFCE8E9);
+    } else if (type.contains('category')) {
+      icon = Icons.category_rounded;
+      iconColor = const Color(0xFF6B4EFF);
+      bgColor = const Color(0xFFF0EAFA);
+    } else if (type.contains('recurring')) {
+      icon = Icons.event_repeat_rounded;
+      iconColor = const Color(0xFF00838F);
+      bgColor = const Color(0xFFE0F7FA);
+    } else if (type.contains('settings')) {
+      icon = Icons.tune_rounded;
+      iconColor = const Color(0xFF555555);
+      bgColor = const Color(0xFFEEEEEE);
     }
 
-    final timeStr = DateFormat('hh:mm a').format(log.timestamp);
+    final timeStr = DateFormat('hh:mm a').format(record.timestamp);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10.0),
-      child: PremiumCard(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: isDark ? iconColor.withOpacity(0.2) : bgColor,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  record.title,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14.5,
+                    color: isDark ? AppColors.textPrimaryDark : const Color(0xFF1E2522),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  record.description,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontSize: 12.5,
+                    color: isDark ? AppColors.textSecondaryDark : const Color(0xFF757575),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            timeStr,
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: isDark ? AppColors.textSecondaryDark : const Color(0xFF999999),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInitialEmptyState(ThemeData theme, bool isDark) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 38,
-              height: 38,
+              width: 84,
+              height: 84,
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.12),
+                color: const Color(0xFF073826).withOpacity(0.08),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 20, color: iconColor),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          log.title,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        timeStr,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          fontSize: 11,
-                          color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    log.description,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontSize: 13,
-                      height: 1.3,
-                    ),
-                  ),
-                ],
+              child: const Icon(
+                Icons.history_toggle_off_rounded,
+                size: 42,
+                color: Color(0xFF073826),
               ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'No Activity History Yet',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: isDark ? AppColors.textPrimaryDark : const Color(0xFF073826),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Activity history is automatically recorded when you log expenses, update budgets, or adjust settings.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontSize: 13.5,
+                color: isDark ? AppColors.textSecondaryDark : const Color(0xFF757575),
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: widget.onAddExpenseTap,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Add Your First Expense'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF073826),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 0,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoSearchResultState(ThemeData theme, bool isDark) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.search_off_rounded, size: 52, color: Colors.grey),
+            const SizedBox(height: 12),
+            Text(
+              'No matching history records',
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -377,31 +453,19 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Clear Activity Logs?'),
-          content: const Text('This action will erase all activity history entries. Your expense records will remain untouched.'),
+          title: const Text('Clear Activity History?'),
+          content: const Text('This will permanently clear all recorded activity logs. Your actual expenses and settings will remain intact.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.danger,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('Clear All Logs'),
+            TextButton(
               onPressed: () {
-                ref.read(historyLogProvider.notifier).clearAllLogs();
+                ref.read(historyLogProvider.notifier).clearHistory();
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Activity history cleared successfully.'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
               },
+              child: const Text('Clear', style: TextStyle(color: AppColors.danger)),
             ),
           ],
         );

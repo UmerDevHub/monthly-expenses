@@ -8,7 +8,7 @@ import '../../models/models.dart';
 import '../../providers/app_providers.dart';
 import '../../services/hive_service.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/custom_card.dart';
+import '../../utils/currency_formatter.dart';
 import '../recurring_expenses/recurring_expenses_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -87,12 +87,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       iconColor: const Color(0xFF7A9E5A),
                       title: 'Monthly Budget (Overall)',
                       description: 'Set your overall monthly spending limit',
-                      value: '${settings.currency} ${NumberFormat('#,##0').format(settings.overallMonthlyLimit ?? 55000.0)}',
+                      value: CurrencyFormatter.format(settings.overallMonthlyLimit ?? 5000.0, settings.currency, decimalDigits: 0),
                       onTap: () => _showBudgetLimitSheet(context, settings),
                       theme: theme,
                       isDark: isDark,
                     ),
                     _buildDivider(isDark),
+
                     _buildSettingRow(
                       icon: Icons.track_changes_outlined,
                       iconBgColor: const Color(0xFFFEF5EE),
@@ -228,18 +229,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       title: 'Notifications',
                       description: 'Manage budget alerts and reminders',
                       onTap: () => _showNotificationsSheet(context),
-                      theme: theme,
-                      isDark: isDark,
-                    ),
-                    _buildDivider(isDark),
-                    _buildSettingRow(
-                      icon: Icons.lightbulb_outline,
-                      iconBgColor: const Color(0xFFFFFBEA),
-                      iconColor: const Color(0xFFECAE35),
-                      title: 'AI Insights',
-                      description: 'Get smart insights about your spending',
-                      value: settings.geminiApiKey != null && settings.geminiApiKey!.isNotEmpty ? 'Configured' : 'Setup Required',
-                      onTap: () => _showAiInsightsSheet(context, settings),
                       theme: theme,
                       isDark: isDark,
                     ),
@@ -463,9 +452,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     required List<Widget> children,
     required bool isDark,
   }) {
-    return PremiumCard(
-      padding: EdgeInsets.zero,
-      borderRadius: 20,
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceCardDark : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.border,
+        ),
+      ),
       child: Column(
         children: children,
       ),
@@ -647,46 +641,94 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   // 2. CURRENCY SHEET
   void _showCurrencySheet(BuildContext context, AppSettings settings) {
-    final currencies = ['Rs.', 'PKR', 'USD', 'EUR', 'GBP'];
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     showModalBottomSheet(
       context: context,
+      backgroundColor: isDark ? AppColors.surfaceCardDark : Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
         return Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Select Currency Symbol',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                'Active Display Currency',
+                style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 16),
-              ...currencies.map((curr) {
-                final isSelected = settings.currency == curr;
-                return ListTile(
-                  title: Text(curr, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  trailing: isSelected ? const Icon(Icons.check, color: AppColors.primary) : null,
-                  onTap: () {
-                    ref.read(appSettingsProvider.notifier).updateSettings(
-                      settings.copyWith(currency: curr),
-                    );
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Currency updated to $curr'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                );
-              }),
+              const SizedBox(height: 4),
+              Text(
+                'Base Currency is QAR. Switching to PKR applies 1 QAR = 74.03 PKR exchange rate.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                  fontSize: 12.5,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                tileColor: settings.currency == 'QAR'
+                    ? (isDark ? const Color(0xFF1E2822) : const Color(0xFFE8F3EE))
+                    : null,
+                leading: const Text('🇶🇦', style: TextStyle(fontSize: 28)),
+                title: const Text('Qatari Riyal (QAR)', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Default Base Currency'),
+                trailing: settings.currency == 'QAR' ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                onTap: () {
+                  ref.read(appSettingsProvider.notifier).updateSettings(
+                    settings.copyWith(currency: 'QAR'),
+                  );
+                  ref.read(historyLogProvider.notifier).addLog(
+                    title: 'Currency Changed',
+                    description: 'Switched active display currency to QAR (Qatari Riyal).',
+                    actionType: 'settings_changed',
+                  );
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Display currency set to QAR'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                tileColor: settings.currency == 'PKR'
+                    ? (isDark ? const Color(0xFF1E2822) : const Color(0xFFE8F3EE))
+                    : null,
+                leading: const Text('🇵🇰', style: TextStyle(fontSize: 28)),
+                title: const Text('Pakistani Rupee (PKR)', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Converted at 1 QAR = 74.03 PKR'),
+                trailing: settings.currency == 'PKR' ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+                onTap: () {
+                  ref.read(appSettingsProvider.notifier).updateSettings(
+                    settings.copyWith(currency: 'PKR'),
+                  );
+                  ref.read(historyLogProvider.notifier).addLog(
+                    title: 'Currency Changed',
+                    description: 'Switched active display currency to PKR (Pakistani Rupee).',
+                    actionType: 'settings_changed',
+                  );
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Display currency set to PKR (1 QAR = 74.03 PKR)'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+              ),
             ],
           ),
         );
@@ -694,10 +736,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+
   // 3. OVERALL BUDGET LIMIT SHEET
   void _showBudgetLimitSheet(BuildContext context, AppSettings settings) {
+    final double currentQARLimit = settings.overallMonthlyLimit ?? 5000.0;
+    final double displayLimit = CurrencyFormatter.convert(currentQARLimit, settings.currency);
+
     final controller = TextEditingController(
-      text: (settings.overallMonthlyLimit ?? 55000.0).toStringAsFixed(0),
+      text: displayLimit.toStringAsFixed(0),
     );
 
     showModalBottomSheet(
@@ -737,8 +783,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Define your total monthly spending target limit across all categories.',
+                Text(
+                  'Define your total monthly spending target limit in ${settings.currency}.',
                 ),
                 const SizedBox(height: 20),
                 TextField(
@@ -753,15 +799,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () {
-                    final double? limit = double.tryParse(controller.text);
-                    if (limit != null && limit > 0) {
+                    final double? enteredVal = double.tryParse(controller.text);
+                    if (enteredVal != null && enteredVal > 0) {
+                      final double limitInQAR = settings.currency == 'PKR' ? (enteredVal / 74.03) : enteredVal;
                       ref.read(appSettingsProvider.notifier).updateSettings(
-                        settings.copyWith(overallMonthlyLimit: limit),
+                        settings.copyWith(overallMonthlyLimit: limitInQAR),
                       );
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Overall monthly budget set to ${settings.currency} ${NumberFormat('#,##0').format(limit)}'),
+                          content: Text('Overall monthly budget set to ${CurrencyFormatter.format(limitInQAR, settings.currency, decimalDigits: 0)}'),
                           behavior: SnackBarBehavior.floating,
                         ),
                       );
@@ -789,6 +836,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   // 4. BUDGET BY CATEGORY SHEET
   void _showCategoryBudgetsSheet(BuildContext context) {
     final categories = ref.watch(categoriesProvider);
+    final settings = ref.watch(appSettingsProvider);
 
     showModalBottomSheet(
       context: context,
@@ -823,10 +871,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                   child: Text(
-                    'Customize individual monthly limits. Set to 0 to disable categories from home progress bars.',
+                    'Customize individual monthly limits in ${settings.currency}. Set to 0 to disable.',
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -838,8 +886,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     itemBuilder: (context, index) {
                       final cat = categories[index];
                       final catColor = AppColors.getCategoryColor(cat.name, cat.colorHex);
+
+                      final double currentQAR = cat.monthlyLimit ?? 0.0;
+                      final double displayLimit = currentQAR > 0 ? CurrencyFormatter.convert(currentQAR, settings.currency) : 0.0;
                       final limitController = TextEditingController(
-                        text: (cat.monthlyLimit ?? 0.0).toStringAsFixed(0),
+                        text: displayLimit.toStringAsFixed(0),
                       );
 
                       return ListTile(
@@ -858,25 +909,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                         title: Text(cat.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                         trailing: SizedBox(
-                          width: 120,
+                          width: 130,
                           child: TextField(
                             controller: limitController,
                             keyboardType: TextInputType.number,
                             textAlign: TextAlign.end,
-                            decoration: const InputDecoration(
-                              prefixText: 'Rs. ',
-                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              border: OutlineInputBorder(),
+                            decoration: InputDecoration(
+                              prefixText: '${settings.currency} ',
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              border: const OutlineInputBorder(),
                             ),
                             onSubmitted: (value) {
-                              final double? newLimit = double.tryParse(value);
-                              if (newLimit != null) {
+                              final double? enteredVal = double.tryParse(value);
+                              if (enteredVal != null) {
+                                final double newLimitInQAR = (settings.currency == 'PKR' && enteredVal > 0)
+                                    ? (enteredVal / 74.03)
+                                    : enteredVal;
                                 ref.read(categoriesProvider.notifier).updateCategory(
-                                  cat.copyWith(monthlyLimit: newLimit),
+                                  cat.copyWith(monthlyLimit: newLimitInQAR),
                                 );
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('${cat.name} budget set to Rs. $value'),
+                                    content: Text('${cat.name} budget set to ${CurrencyFormatter.format(newLimitInQAR, settings.currency, decimalDigits: 0)}'),
                                     duration: const Duration(seconds: 1),
                                     behavior: SnackBarBehavior.floating,
                                   ),
@@ -896,6 +950,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       },
     );
   }
+
 
   // 6. CATEGORIES MANAGEMENT SHEET
   void _showCategoriesManagementSheet(BuildContext context) {
@@ -1294,93 +1349,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  // 10. AI INSIGHTS GEMINI KEY INPUT
-  void _showAiInsightsSheet(BuildContext context, AppSettings settings) {
-    final controller = TextEditingController(text: settings.geminiApiKey);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            top: 20,
-            left: 20,
-            right: 20,
-          ),
-          child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Gemini AI Key Setup',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'To use AI Insights & Telemetry suggestions, register your free Google Gemini API Key here. Keys are stored locally on your device.',
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: controller,
-                  decoration: const InputDecoration(
-                    labelText: 'Gemini API Key',
-                    border: OutlineInputBorder(),
-                    helperText: 'Get a key from Google AI Studio',
-                  ),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () {
-                    final keyStr = controller.text.trim();
-                    ref.read(appSettingsProvider.notifier).updateSettings(
-                      settings.copyWith(geminiApiKey: keyStr),
-                    );
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(keyStr.isEmpty ? 'Gemini Key Removed' : 'Gemini Key Configured Locally'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text('Save API Key'),
-                ),
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   void _showBackupRestoreSheet(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -1491,6 +1459,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         'amount': e.amount,
         'date': e.date.toIso8601String(),
         'note': e.note,
+        'isFromRecurring': e.isFromRecurring,
       }).toList(),
       'categories': categories.map((c) => {
         'id': c.id,
@@ -1498,6 +1467,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         'iconAsset': c.iconAsset,
         'colorHex': c.colorHex,
         'monthlyLimit': c.monthlyLimit,
+        'isDefault': c.isDefault,
       }).toList(),
       'recurring': recurring.map((r) => {
         'id': r.id,
@@ -1512,7 +1482,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         'darkMode': settings.darkMode,
         'appLockEnabled': settings.appLockEnabled,
         'overallMonthlyLimit': settings.overallMonthlyLimit,
-        'geminiApiKey': settings.geminiApiKey,
       } : null,
     };
 
@@ -1520,9 +1489,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     // Log the backup action
     ref.read(historyLogProvider.notifier).addLog(
-      actionType: 'settings_backup',
       title: 'JSON Backup Created',
       description: 'Exported ${expenses.length} expenses and app configuration',
+      actionType: 'settings_backup',
     );
 
     showDialog(
@@ -1536,19 +1505,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             children: [
               const Text('Copy the JSON data below to keep a safe offline backup:'),
               const SizedBox(height: 12),
-              SizedBox(
-                height: 200,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[900],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: SingleChildScrollView(
-                    child: SelectableText(
-                      jsonString,
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.greenAccent),
-                    ),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 200),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[900],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    jsonString,
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.greenAccent),
                   ),
                 ),
               ),
@@ -1629,6 +1596,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         amount: (item['amount'] as num).toDouble(),
                         date: DateTime.parse(item['date']),
                         note: item['note'],
+                        isFromRecurring: item['isFromRecurring'] ?? false,
                       );
                     }).toList();
 
@@ -1646,7 +1614,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         name: item['name'],
                         iconAsset: item['iconAsset'],
                         colorHex: item['colorHex'],
-                        monthlyLimit: item['budgetLimit'] != null ? (item['budgetLimit'] as num).toDouble() : null,
+                        monthlyLimit: item['monthlyLimit'] != null ? (item['monthlyLimit'] as num).toDouble() : null,
+                        isDefault: item['isDefault'] ?? false,
                       );
                     }).toList();
 
@@ -1661,7 +1630,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     final recList = (data['recurring'] as List).map((item) {
                       return RecurringExpense(
                         id: item['id'],
-                        label: item['title'] ?? item['label'] ?? 'Recurring Expense',
+                        label: item['label'] ?? 'Recurring Item',
                         categoryId: item['categoryId'],
                         amount: (item['amount'] as num).toDouble(),
                         dueDay: item['dueDay'] ?? 1,
@@ -1678,12 +1647,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   if (data['settings'] is Map) {
                     final sMap = data['settings'];
                     final settingsObj = AppSettings(
-                      userName: sMap['userName'] ?? 'User',
+                      userName: sMap['userName'] ?? 'Umer Nisar',
                       currency: sMap['currency'] ?? 'Rs.',
                       darkMode: sMap['darkMode'] ?? false,
                       appLockEnabled: sMap['appLockEnabled'] ?? false,
                       overallMonthlyLimit: sMap['overallMonthlyLimit'] != null ? (sMap['overallMonthlyLimit'] as num).toDouble() : 55000.0,
-                      geminiApiKey: sMap['geminiApiKey'],
                     );
                     await HiveService.settingsBox.put('app_settings', settingsObj);
                   }
@@ -1696,9 +1664,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                   // Log restoration action
                   ref.read(historyLogProvider.notifier).addLog(
-                    actionType: 'settings_restore',
                     title: 'Backup Restored',
                     description: 'Successfully restored data from JSON backup',
+                    actionType: 'settings_restore',
                   );
 
                   if (context.mounted) {
@@ -1717,6 +1685,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       SnackBar(
                         content: Text('Failed to restore backup: $err'),
                         behavior: SnackBarBehavior.floating,
+
                         backgroundColor: AppColors.danger,
                       ),
                     );

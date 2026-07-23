@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../providers/app_providers.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/currency_formatter.dart';
+
 
 class MonthlyComparisonScreen extends ConsumerStatefulWidget {
   const MonthlyComparisonScreen({super.key});
@@ -40,15 +42,10 @@ class _MonthlyComparisonScreenState extends ConsumerState<MonthlyComparisonScree
 
     final allExpenses = ref.read(expensesProvider);
     final monthSet = allExpenses.map((e) => DateFormat('yyyy-MM').format(e.date)).toSet();
-    
-    // Dynamically include last 12 months
-    final now = DateTime.now();
-    for (int i = 0; i < 12; i++) {
-      final d = DateTime(now.year, now.month - i, 1);
-      monthSet.add(DateFormat('yyyy-MM').format(d));
-    }
+    monthSet.add(DateFormat('yyyy-MM').format(DateTime.now()));
 
     final availableMonths = monthSet.toList()..sort((a, b) => b.compareTo(a));
+
 
     showModalBottomSheet(
       context: context,
@@ -341,7 +338,7 @@ class _MonthlyComparisonScreenState extends ConsumerState<MonthlyComparisonScree
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '${settings.currency} ${baseTotal.toStringAsFixed(0)}',
+                                    CurrencyFormatter.format(baseTotal, settings.currency, decimalDigits: 0),
                                     style: theme.textTheme.titleLarge?.copyWith(
                                       fontWeight: FontWeight.bold,
                                       color: AppColors.primary,
@@ -365,12 +362,13 @@ class _MonthlyComparisonScreenState extends ConsumerState<MonthlyComparisonScree
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '${settings.currency} ${targetTotal.toStringAsFixed(0)}',
+                                      CurrencyFormatter.format(targetTotal, settings.currency, decimalDigits: 0),
                                       style: theme.textTheme.titleLarge?.copyWith(
                                         fontWeight: FontWeight.bold,
                                         color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
                                       ),
                                     ),
+
                                   ],
                                 ),
                               ),
@@ -431,20 +429,21 @@ class _MonthlyComparisonScreenState extends ConsumerState<MonthlyComparisonScree
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '${settings.currency} ${bSpent.toStringAsFixed(0)} vs ${settings.currency} ${tSpent.toStringAsFixed(0)}',
+                                    '${CurrencyFormatter.format(bSpent, settings.currency, decimalDigits: 0)} vs ${CurrencyFormatter.format(tSpent, settings.currency, decimalDigits: 0)}',
                                     style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12),
                                   ),
                                 ],
                               ),
                             ),
                             Text(
-                              '${diff >= 0 ? "+" : ""}${settings.currency} ${diff.toStringAsFixed(0)}',
+                              '${diff >= 0 ? "+" : "-"}${CurrencyFormatter.format(diff.abs(), settings.currency, decimalDigits: 0)}',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                                 color: diff > 0 ? AppColors.danger : (diff < 0 ? AppColors.primary : Colors.grey),
                               ),
                             ),
+
                           ],
                         ),
                       ),

@@ -179,7 +179,7 @@ class AppSettings extends HiveObject {
   final String userName;
 
   AppSettings({
-    this.currency = 'PKR',
+    this.currency = 'QAR',
     this.overallMonthlyLimit,
     this.appLockEnabled = false,
     this.darkMode = false,
