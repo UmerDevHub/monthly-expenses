@@ -163,9 +163,11 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
                           borderSide: BorderSide(color: AppColors.primary),
                         ),
                       ),
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       'Quick Tags & Presets',
+
                       style: theme.textTheme.labelMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,

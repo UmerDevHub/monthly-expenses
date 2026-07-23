@@ -1108,9 +1108,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       decoration: const InputDecoration(
                         labelText: 'Category Name',
                         border: OutlineInputBorder(),
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       'Quick Tags & Presets',
+
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
