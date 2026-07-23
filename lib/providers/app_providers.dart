@@ -65,6 +65,10 @@ class HistoryLogNotifier extends StateNotifier<List<HistoryRecord>> {
     await HiveService.historyBox.clear();
     state = [];
   }
+
+  Future<void> clearAllLogs() async {
+    await clearHistory();
+  }
 }
 
 final historyLogProvider = StateNotifierProvider<HistoryLogNotifier, List<HistoryRecord>>((ref) {
@@ -209,12 +213,17 @@ class CategorySummary {
   final Category category;
   final double spent;
   final double percentage;
+  final int transactionsCount;
 
   CategorySummary({
     required this.category,
     required this.spent,
     required this.percentage,
+    this.transactionsCount = 0,
   });
+
+  double get usagePercent => percentage;
+  int get expenseCount => transactionsCount;
 }
 
 // Computed provider: Category-wise breakdown of expenses for selected month

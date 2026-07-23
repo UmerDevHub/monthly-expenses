@@ -8,7 +8,9 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../models/models.dart';
 import '../../providers/app_providers.dart';
+import '../../services/hive_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/custom_card.dart';
 import '../monthly_comparison/monthly_comparison_screen.dart';
 import 'ai_insights_screen.dart';
 
@@ -565,28 +567,15 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     required ThemeData theme,
     required bool isDark,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceCardDark : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? AppColors.borderDark : AppColors.border,
-        ),
-      ),
+    final isNegative = trend.contains('-');
+    return PremiumCard(
+      padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.06),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, size: 14, color: AppColors.primary),
-              ),
+              Icon(icon, size: 14, color: AppColors.primaryAccent),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -611,14 +600,10 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            trend,
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-              color: trend.contains('-') ? AppColors.danger : AppColors.primary,
-            ),
+          const SizedBox(height: 6),
+          CustomPillBadge(
+            label: trend,
+            color: isNegative ? AppColors.danger : AppColors.primaryAccent,
           ),
         ],
       ),

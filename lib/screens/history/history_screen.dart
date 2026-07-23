@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../models/models.dart';
 import '../../providers/app_providers.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/custom_card.dart';
 
 class HistoryScreen extends ConsumerStatefulWidget {
   final VoidCallback onBackTap;
@@ -38,16 +39,14 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
     // Filter logs
     final filteredLogs = historyLogs.where((log) {
-      // 1. Filter Chip check
       if (_selectedFilter != 'All') {
         final type = log.actionType.toLowerCase();
         if (_selectedFilter == 'Expenses' && !type.contains('expense')) return false;
         if (_selectedFilter == 'Categories' && !type.contains('category')) return false;
         if (_selectedFilter == 'Bills' && !type.contains('recurring')) return false;
-        if (_selectedFilter == 'Settings' && !type.contains('settings')) return false;
+        if (_selectedFilter == 'Settings' && !type.contains('settings') && !type.contains('backup')) return false;
       }
 
-      // 2. Search check
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
         final matchTitle = log.title.toLowerCase().contains(q);
@@ -60,10 +59,6 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
     // Group logs by date
     final Map<String, List<HistoryRecord>> groupedLogs = {};
-    final now = DateTime.now();
-    final todayStr = DateFormat('yyyy-MM-dd').format(now);
-    final yesterdayStr = DateFormat('yyyy-MM-dd').format(now.subtract(const Duration(days: 1)));
-
     for (var log in filteredLogs) {
       final dateKey = DateFormat('yyyy-MM-dd').format(log.timestamp);
       if (!groupedLogs.containsKey(dateKey)) {
@@ -78,172 +73,215 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // 1. Header Row
+            // 1. Header Bar
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: isDark ? AppColors.borderDark : AppColors.border,
+                  BouncingButton(
+                    onTap: widget.onBackTap,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.surfaceCardDark : Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: isDark ? AppColors.borderDark : AppColors.border),
                       ),
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_back_outlined, size: 20),
-                      onPressed: widget.onBackTap,
+                      child: const Icon(Icons.arrow_back_rounded, size: 20),
                     ),
                   ),
                   Text(
                     'Activity History',
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
-                      fontSize: 20,
+                      fontSize: 18,
                     ),
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: isDark ? AppColors.borderDark : AppColors.border,
+                  if (historyLogs.isNotEmpty)
+                    BouncingButton(
+                      onTap: () => _confirmClearHistory(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.danger.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(100),
+                          border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.delete_outline_rounded, size: 14, color: AppColors.danger),
+                            SizedBox(width: 4),
+                            Text(
+                              'Clear',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.danger),
+                            ),
+                          ],
+                        ),
                       ),
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 20, color: AppColors.danger),
-                      onPressed: historyLogs.isEmpty ? null : () => _confirmClearHistory(context),
-                    ),
-                  ),
+                    )
+                  else
+                    const SizedBox(width: 40),
                 ],
               ),
             ),
 
             // 2. Search Field
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (val) => setState(() => _searchQuery = val.trim()),
-                decoration: InputDecoration(
-                  hintText: 'Search history...',
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() => _searchQuery = '');
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: isDark ? AppColors.surfaceCardDark : AppColors.surfaceCard,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: isDark ? AppColors.borderDark : AppColors.border),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.surfaceCardDark : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: isDark ? AppColors.borderDark : AppColors.border),
+                  boxShadow: AppShadows.softLight,
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (val) {
+                    setState(() {
+                      _searchQuery = val.trim();
+                    });
+                  },
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: isDark ? AppColors.borderDark : AppColors.border),
+                  decoration: InputDecoration(
+                    hintText: 'Search actions, notes, amounts...',
+                    hintStyle: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                    ),
+                    prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.primaryAccent),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear_rounded, size: 18),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {
+                                _searchQuery = '';
+                              });
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 12),
 
-            // 3. Filter Chips
+            // 3. Filter Chips Row
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               child: Row(
                 children: ['All', 'Expenses', 'Categories', 'Bills', 'Settings'].map((filter) {
                   final isSelected = _selectedFilter == filter;
                   return Padding(
                     padding: const EdgeInsets.only(right: 8.0),
-                    child: FilterChip(
-                      label: Text(
-                        filter,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    child: BouncingButton(
+                      onTap: () {
+                        setState(() {
+                          _selectedFilter = filter;
+                        });
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                        decoration: BoxDecoration(
                           color: isSelected
-                              ? Colors.white
-                              : (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary),
+                              ? AppColors.primary
+                              : (isDark ? AppColors.surfaceCardDark : Colors.white),
+                          borderRadius: BorderRadius.circular(100),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppColors.primary
+                                : (isDark ? AppColors.borderDark : AppColors.border),
+                          ),
+                          boxShadow: isSelected ? AppShadows.heroGlow : null,
+                        ),
+                        child: Text(
+                          filter,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                            color: isSelected
+                                ? Colors.white
+                                : (isDark ? AppColors.textSecondaryDark : AppColors.textSecondary),
+                          ),
                         ),
                       ),
-                      selected: isSelected,
-                      selectedColor: AppColors.primary,
-                      backgroundColor: isDark ? AppColors.surfaceCardDark : AppColors.surfaceCard,
-                      onSelected: (val) => setState(() => _selectedFilter = filter),
                     ),
                   );
                 }).toList(),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
 
-            // 4. Main History List or Empty State
+            // 4. Timeline List / Empty State
             Expanded(
-              child: historyLogs.isEmpty
-                  ? _buildInitialEmptyState(theme, isDark)
-                  : filteredLogs.isEmpty
-                      ? _buildNoSearchResultState(theme, isDark)
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          physics: const BouncingScrollPhysics(),
-                          itemCount: sortedDateKeys.length,
-                          itemBuilder: (context, idx) {
-                            final dateKey = sortedDateKeys[idx];
-                            final list = groupedLogs[dateKey]!;
-                            final parsedDate = DateTime.parse(dateKey);
+              child: filteredLogs.isEmpty
+                  ? CustomEmptyState(
+                      title: 'No Activity History',
+                      description: historyLogs.isEmpty
+                          ? 'Your actions (adding expenses, editing budgets) will automatically build an audit timeline here.'
+                          : 'No history logs found matching "$_searchQuery".',
+                      icon: Icons.history_rounded,
+                      buttonText: historyLogs.isEmpty ? 'Log First Expense' : null,
+                      onButtonPressed: historyLogs.isEmpty ? widget.onAddExpenseTap : null,
+                    )
+                  : ListView.builder(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                      itemCount: sortedDateKeys.length,
+                      itemBuilder: (context, dateIdx) {
+                        final dateKey = sortedDateKeys[dateIdx];
+                        final dayLogs = groupedLogs[dateKey]!;
+                        final parsedDate = DateTime.parse(dateKey);
 
-                            String headerTitle = '';
-                            if (dateKey == todayStr) {
-                              headerTitle = 'Today • ${DateFormat('d MMMM').format(parsedDate)}';
-                            } else if (dateKey == yesterdayStr) {
-                              headerTitle = 'Yesterday • ${DateFormat('d MMMM').format(parsedDate)}';
-                            } else {
-                              headerTitle = DateFormat('d MMMM yyyy').format(parsedDate);
-                            }
+                        final now = DateTime.now();
+                        String dateHeader;
+                        if (DateFormat('yyyy-MM-dd').format(now) == dateKey) {
+                          dateHeader = 'Today';
+                        } else if (DateFormat('yyyy-MM-dd').format(now.subtract(const Duration(days: 1))) == dateKey) {
+                          dateHeader = 'Yesterday';
+                        } else {
+                          dateHeader = DateFormat('EEEE, dd MMMM yyyy').format(parsedDate);
+                        }
 
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 4.0),
-                                  child: Text(
-                                    headerTitle,
-                                    style: theme.textTheme.labelMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                                    ),
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Date Section Header
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 4.0),
+                              child: Row(
+                                children: [
+                                  CustomPillBadge(
+                                    label: dateHeader,
+                                    color: AppColors.primaryAccent,
+                                    icon: Icons.calendar_month_outlined,
                                   ),
-                                ),
-                                Card(
-                                  margin: EdgeInsets.zero,
-                                  child: ListView.separated(
-                                    shrinkWrap: true,
-                                    physics: const NeverScrollableScrollPhysics(),
-                                    itemCount: list.length,
-                                    separatorBuilder: (_, __) => Divider(
-                                      height: 1,
-                                      indent: 16,
-                                      endIndent: 16,
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Divider(
                                       color: isDark ? AppColors.borderDark : AppColors.border,
+                                      height: 1,
                                     ),
-                                    itemBuilder: (context, subIdx) {
-                                      final record = list[subIdx];
-                                      return _buildHistoryRow(record, theme, isDark);
-                                    },
                                   ),
-                                ),
-                                const SizedBox(height: 12),
-                              ],
-                            );
-                          },
-                        ),
+                                ],
+                              ),
+                            ),
+
+                            // Day's Log Cards
+                            ...dayLogs.map((log) => _buildHistoryCard(context, log, isDark, theme)),
+                          ],
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -251,145 +289,82 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     );
   }
 
-  Widget _buildHistoryRow(HistoryRecord record, ThemeData theme, bool isDark) {
-    IconData icon = Icons.history;
-    Color iconColor = AppColors.primary;
+  Widget _buildHistoryCard(BuildContext context, HistoryRecord log, bool isDark, ThemeData theme) {
+    IconData icon;
+    Color iconColor;
 
-    final type = record.actionType.toLowerCase();
-    if (type == 'expense_added') {
-      icon = Icons.add_circle_outline;
-      iconColor = AppColors.primary;
-    } else if (type == 'expense_edited') {
-      icon = Icons.edit_outlined;
-      iconColor = AppColors.accentWarning;
-    } else if (type == 'expense_deleted') {
-      icon = Icons.delete_outline;
+    final actionLower = log.actionType.toLowerCase();
+    if (actionLower.contains('add')) {
+      icon = Icons.add_circle_outline_rounded;
+      iconColor = AppColors.primaryAccent;
+    } else if (actionLower.contains('delete') || actionLower.contains('clear')) {
+      icon = Icons.delete_outline_rounded;
       iconColor = AppColors.danger;
-    } else if (type.contains('category')) {
-      icon = Icons.category_outlined;
-      iconColor = const Color(0xFF5A7A9E);
-    } else if (type.contains('recurring')) {
-      icon = Icons.event_repeat;
-      iconColor = const Color(0xFF8E5A7A);
-    } else if (type.contains('settings')) {
-      icon = Icons.settings_outlined;
-      iconColor = Colors.grey;
+    } else if (actionLower.contains('edit') || actionLower.contains('update')) {
+      icon = Icons.edit_note_rounded;
+      iconColor = AppColors.accentWarning;
+    } else if (actionLower.contains('backup') || actionLower.contains('restore')) {
+      icon = Icons.cloud_sync_rounded;
+      iconColor = AppColors.info;
+    } else {
+      icon = Icons.receipt_long_rounded;
+      iconColor = AppColors.primary;
     }
 
-    final timeStr = DateFormat('hh:mm a').format(record.timestamp);
+    final timeStr = DateFormat('hh:mm a').format(log.timestamp);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  record.title,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  record.description,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontSize: 12.5,
-                    color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            timeStr,
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontSize: 11,
-              color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInitialEmptyState(ThemeData theme, bool isDark) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      padding: const EdgeInsets.only(bottom: 10.0),
+      child: PremiumCard(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 80,
-              height: 80,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.08),
+                color: iconColor.withOpacity(0.12),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.history_toggle_off_outlined,
-                size: 40,
-                color: AppColors.primary,
+              child: Icon(icon, size: 20, color: iconColor),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          log.title,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        timeStr,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontSize: 11,
+                          color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    log.description,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontSize: 13,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'No Activity History Yet',
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'History logs are created automatically when you add, edit, or delete expenses, categories, and settings.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: widget.onAddExpenseTap,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Add Your First Expense'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNoSearchResultState(ThemeData theme, bool isDark) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.search_off, size: 48, color: Colors.grey),
-            const SizedBox(height: 12),
-            Text(
-              'No matching history records',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -402,19 +377,31 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Clear Activity History?'),
-          content: const Text('This will permanently clear all recorded activity logs. Your actual expenses and settings will remain intact.'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Clear Activity Logs?'),
+          content: const Text('This action will erase all activity history entries. Your expense records will remain untouched.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
-            TextButton(
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.danger,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Clear All Logs'),
               onPressed: () {
-                ref.read(historyLogProvider.notifier).clearHistory();
+                ref.read(historyLogProvider.notifier).clearAllLogs();
                 Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Activity history cleared successfully.'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
               },
-              child: const Text('Clear', style: TextStyle(color: AppColors.danger)),
             ),
           ],
         );

@@ -8,6 +8,7 @@ import '../../models/models.dart';
 import '../../providers/app_providers.dart';
 import '../../services/hive_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/custom_card.dart';
 import '../recurring_expenses/recurring_expenses_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -462,14 +463,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     required List<Widget> children,
     required bool isDark,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.surfaceCardDark : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? AppColors.borderDark : AppColors.border,
-        ),
-      ),
+    return PremiumCard(
+      padding: EdgeInsets.zero,
+      borderRadius: 20,
       child: Column(
         children: children,
       ),
@@ -1495,25 +1491,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         'amount': e.amount,
         'date': e.date.toIso8601String(),
         'note': e.note,
-        'paymentMethod': e.paymentMethod,
-        'tags': e.tags,
       }).toList(),
       'categories': categories.map((c) => {
         'id': c.id,
         'name': c.name,
         'iconAsset': c.iconAsset,
         'colorHex': c.colorHex,
-        'budgetLimit': c.budgetLimit,
+        'monthlyLimit': c.monthlyLimit,
       }).toList(),
       'recurring': recurring.map((r) => {
         'id': r.id,
-        'title': r.title,
+        'label': r.label,
         'categoryId': r.categoryId,
         'amount': r.amount,
-        'frequency': r.frequency,
-        'nextDueDate': r.nextDueDate.toIso8601String(),
-        'isAutoPay': r.isAutoPay,
-        'reminderDaysBefore': r.reminderDaysBefore,
+        'dueDay': r.dueDay,
       }).toList(),
       'settings': settings != null ? {
         'userName': settings.userName,
@@ -1529,9 +1520,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     // Log the backup action
     ref.read(historyLogProvider.notifier).addLog(
-      'settings_backup',
-      'JSON Backup Created',
-      'Exported ${expenses.length} expenses and app configuration',
+      actionType: 'settings_backup',
+      title: 'JSON Backup Created',
+      description: 'Exported ${expenses.length} expenses and app configuration',
     );
 
     showDialog(
@@ -1545,17 +1536,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             children: [
               const Text('Copy the JSON data below to keep a safe offline backup:'),
               const SizedBox(height: 12),
-              Container(
-                maxHeight: 200,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.grey[900],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: SingleChildScrollView(
-                  child: SelectableText(
-                    jsonString,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.greenAccent),
+              SizedBox(
+                height: 200,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[900],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      jsonString,
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.greenAccent),
+                    ),
                   ),
                 ),
               ),
@@ -1636,8 +1629,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         amount: (item['amount'] as num).toDouble(),
                         date: DateTime.parse(item['date']),
                         note: item['note'],
-                        paymentMethod: item['paymentMethod'] ?? 'Cash',
-                        tags: List<String>.from(item['tags'] ?? []),
                       );
                     }).toList();
 
@@ -1655,7 +1646,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         name: item['name'],
                         iconAsset: item['iconAsset'],
                         colorHex: item['colorHex'],
-                        budgetLimit: item['budgetLimit'] != null ? (item['budgetLimit'] as num).toDouble() : null,
+                        monthlyLimit: item['budgetLimit'] != null ? (item['budgetLimit'] as num).toDouble() : null,
                       );
                     }).toList();
 
@@ -1670,13 +1661,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     final recList = (data['recurring'] as List).map((item) {
                       return RecurringExpense(
                         id: item['id'],
-                        title: item['title'],
+                        label: item['title'] ?? item['label'] ?? 'Recurring Expense',
                         categoryId: item['categoryId'],
                         amount: (item['amount'] as num).toDouble(),
-                        frequency: item['frequency'],
-                        nextDueDate: DateTime.parse(item['nextDueDate']),
-                        isAutoPay: item['isAutoPay'] ?? false,
-                        reminderDaysBefore: item['reminderDaysBefore'] ?? 3,
+                        dueDay: item['dueDay'] ?? 1,
                       );
                     }).toList();
 
@@ -1708,9 +1696,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                   // Log restoration action
                   ref.read(historyLogProvider.notifier).addLog(
-                    'settings_restore',
-                    'Backup Restored',
-                    'Successfully restored data from JSON backup',
+                    actionType: 'settings_restore',
+                    title: 'Backup Restored',
+                    description: 'Successfully restored data from JSON backup',
                   );
 
                   if (context.mounted) {

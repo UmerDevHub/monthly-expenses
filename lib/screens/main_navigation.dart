@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
@@ -6,6 +7,7 @@ import 'history/history_screen.dart';
 import 'reports/reports_screen.dart';
 import 'settings/settings_screen.dart';
 import '../theme/app_theme.dart';
+import '../widgets/custom_card.dart';
 import '../widgets/quick_add_sheet.dart';
 import '../services/notification_service.dart';
 import '../providers/app_providers.dart';
@@ -63,7 +65,6 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
       }
     } catch (e) {
       debugPrint('Biometric auth error: $e');
-      // If biometrics fail completely/not supported, allow access as fallback or keep locked
       setState(() {
         _isAuthenticated = true;
       });
@@ -105,58 +106,64 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
         body: Center(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.surfaceCardDark : const Color(0xFFF7F5F0),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isDark ? AppColors.borderDark : const Color(0xFFE8E4DA),
-                      width: 1.0,
+            child: PremiumCard(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.lock_outline_rounded,
+                      size: 48,
+                      color: isDark ? AppColors.primaryDark : AppColors.primary,
                     ),
                   ),
-                  child: Icon(
-                    Icons.lock_outline_rounded,
-                    size: 64,
-                    color: isDark ? AppColors.primaryDark : AppColors.primary,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Kharcha is Locked',
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontFamily: 'Space Grotesk',
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Authenticate to view your monthly budget and logs.',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 32),
-                ElevatedButton.icon(
-                  onPressed: _authenticate,
-                  icon: const Icon(Icons.fingerprint_rounded),
-                  label: const Text('Unlock App'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Kharcha is Locked',
+                    style: theme.textTheme.displayMedium?.copyWith(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
                     ),
-                    elevation: 0,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    'Authenticate to view your monthly budget and logs.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  BouncingButton(
+                    onTap: _authenticate,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: AppShadows.heroGlow,
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.fingerprint_rounded, color: Colors.white, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Unlock App',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -180,82 +187,127 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
     ];
 
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: screens,
+      extendBody: true,
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        child: screens[_currentIndex],
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: isDark ? AppColors.borderDark : AppColors.border,
-              width: 1.0,
+      bottomNavigationBar: _buildFloatingBottomNav(context, isDark),
+    );
+  }
+
+  Widget _buildFloatingBottomNav(BuildContext context, bool isDark) {
+    final navItems = [
+      _NavItemData(icon: Icons.grid_view_outlined, activeIcon: Icons.grid_view_rounded, label: 'Overview'),
+      _NavItemData(icon: Icons.history_rounded, activeIcon: Icons.history_rounded, label: 'History'),
+      _NavItemData(icon: Icons.insights_outlined, activeIcon: Icons.insights_rounded, label: 'Reports'),
+      _NavItemData(icon: Icons.tune_rounded, activeIcon: Icons.tune_rounded, label: 'Settings'),
+    ];
+
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        height: 68,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(100),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF161D19).withOpacity(0.85) : Colors.white.withOpacity(0.88),
+                borderRadius: BorderRadius.circular(100),
+                border: Border.all(
+                  color: isDark ? Colors.white.withOpacity(0.1) : Colors.white.withOpacity(0.8),
+                  width: 1.0,
+                ),
+                boxShadow: isDark ? AppShadows.softDark : AppShadows.softLight,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  // Tab 0: Home
+                  _buildNavItem(0, navItems[0], isDark),
+                  // Tab 1: History
+                  _buildNavItem(1, navItems[1], isDark),
+
+                  // Center Floating Quick Add FAB
+                  BouncingButton(
+                    onTap: () => _openQuickAddSheet(context),
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.4),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.add_rounded,
+                        color: Colors.white,
+                        size: 26,
+                      ),
+                    ),
+                  ),
+
+                  // Tab 2: Reports
+                  _buildNavItem(2, navItems[2], isDark),
+                  // Tab 3: Settings
+                  _buildNavItem(3, navItems[3], isDark),
+                ],
+              ),
             ),
           ),
         ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: isDark ? AppColors.backgroundDark : AppColors.background,
-          selectedItemColor: isDark ? AppColors.primaryDark : AppColors.primary,
-          unselectedItemColor: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-          selectedLabelStyle: theme.textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-            fontSize: 11,
-          ),
-          unselectedLabelStyle: theme.textTheme.labelLarge?.copyWith(
-            fontSize: 11,
-          ),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Padding(
-                padding: EdgeInsets.only(bottom: 4.0),
-                child: Icon(Icons.home_outlined),
-              ),
-              activeIcon: Padding(
-                padding: EdgeInsets.only(bottom: 4.0),
-                child: Icon(Icons.home),
-              ),
-              label: 'Home',
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, _NavItemData item, bool isDark) {
+    final isSelected = _currentIndex == index;
+    final activeColor = isDark ? AppColors.primaryDark : AppColors.primary;
+    final inactiveColor = isDark ? AppColors.textSecondaryDark : AppColors.textSecondary;
+
+    return BouncingButton(
+      onTap: () {
+        setState(() {
+          _currentIndex = index;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? activeColor.withOpacity(0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(100),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? item.activeIcon : item.icon,
+              size: 20,
+              color: isSelected ? activeColor : inactiveColor,
             ),
-            BottomNavigationBarItem(
-              icon: Padding(
-                padding: EdgeInsets.only(bottom: 4.0),
-                child: Icon(Icons.history_outlined),
+            if (isSelected) ...[
+              const SizedBox(width: 6),
+              Text(
+                item.label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: activeColor,
+                ),
               ),
-              activeIcon: Padding(
-                padding: EdgeInsets.only(bottom: 4.0),
-                child: Icon(Icons.history),
-              ),
-              label: 'History',
-            ),
-            BottomNavigationBarItem(
-              icon: Padding(
-                padding: EdgeInsets.only(bottom: 4.0),
-                child: Icon(Icons.analytics_outlined),
-              ),
-              activeIcon: Padding(
-                padding: EdgeInsets.only(bottom: 4.0),
-                child: Icon(Icons.analytics),
-              ),
-              label: 'Reports',
-            ),
-            BottomNavigationBarItem(
-              icon: Padding(
-                padding: EdgeInsets.only(bottom: 4.0),
-                child: Icon(Icons.settings_outlined),
-              ),
-              activeIcon: Padding(
-                padding: EdgeInsets.only(bottom: 4.0),
-                child: Icon(Icons.settings),
-              ),
-              label: 'Settings',
-            ),
+            ],
           ],
         ),
       ),
@@ -281,4 +333,16 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
       },
     );
   }
+}
+
+class _NavItemData {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+
+  _NavItemData({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+  });
 }

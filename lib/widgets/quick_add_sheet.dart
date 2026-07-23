@@ -7,6 +7,7 @@ import '../providers/app_providers.dart';
 import '../theme/app_theme.dart';
 import 'amount_input.dart';
 import 'category_chip.dart';
+import 'custom_card.dart';
 
 class QuickAddSheet extends ConsumerStatefulWidget {
   final String? initialCategoryId;
@@ -595,37 +596,45 @@ class _QuickAddSheetState extends ConsumerState<QuickAddSheet> {
                     const SizedBox(height: 32),
                     
                     // Save Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: (_amount <= 0.0 || _isSaving) ? null : _saveExpense,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          disabledBackgroundColor: AppColors.primary.withOpacity(0.40),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          elevation: 0,
+                    BouncingButton(
+                      onTap: (_amount <= 0.0 || _isSaving) ? null : _saveExpense,
+                      child: Container(
+                        width: double.infinity,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: (_amount <= 0.0 || _isSaving)
+                              ? AppColors.primary.withOpacity(0.35)
+                              : AppColors.primary,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: (_amount > 0.0 && !_isSaving) ? AppShadows.heroGlow : null,
                         ),
-                        child: _isSaving
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
+                        child: Center(
+                          child: _isSaving
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.check_rounded, color: Colors.white, size: 20),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Save Expense',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontFamily: 'Inter',
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              )
-                            : const Text(
-                                'Save Expense',
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),

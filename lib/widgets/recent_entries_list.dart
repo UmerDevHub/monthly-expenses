@@ -1,21 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../providers/app_providers.dart';
 import '../theme/app_theme.dart';
+import 'custom_card.dart';
 
 class RecentEntriesList extends ConsumerWidget {
   final List<Expense> expenses;
   final List<Category> categories;
   final Function(Expense)? onExpenseTap;
+  final String? currency;
 
   const RecentEntriesList({
     super.key,
     required this.expenses,
     required this.categories,
     this.onExpenseTap,
+    this.currency,
   });
 
   @override
@@ -23,27 +25,12 @@ class RecentEntriesList extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final settings = ref.watch(appSettingsProvider);
+    final activeCurrency = currency ?? settings.currency;
 
     if (expenses.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 40.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.receipt_long_outlined,
-                size: 48,
-                color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'No entries found',
-                style: theme.textTheme.bodyMedium,
-              ),
-            ],
-          ),
-        ),
+      return const CustomEmptyState(
+        title: 'No Expenses Recorded',
+        description: 'Your logged transactions for this period will appear here.',
       );
     }
 
@@ -61,7 +48,6 @@ class RecentEntriesList extends ConsumerWidget {
       groupedExpenses[dateKey]!.add(exp);
     }
 
-    // Sort date keys descending
     final sortedKeys = groupedExpenses.keys.toList()..sort((a, b) => b.compareTo(a));
 
     return ListView.builder(
@@ -71,46 +57,41 @@ class RecentEntriesList extends ConsumerWidget {
       itemBuilder: (context, index) {
         final dateKey = sortedKeys[index];
         final list = groupedExpenses[dateKey]!;
-        
-        // Format Header title
-        String headerTitle = '';
+
+        String headerTitle;
         final parsedDate = DateTime.parse(dateKey);
-        
+
         if (dateKey == todayStr) {
-          headerTitle = 'Today • ${DateFormat('d MMMM').format(parsedDate)}';
+          headerTitle = 'Today';
         } else if (dateKey == yesterdayStr) {
-          headerTitle = 'Yesterday • ${DateFormat('d MMMM').format(parsedDate)}';
+          headerTitle = 'Yesterday';
         } else {
-          headerTitle = DateFormat('d MMMM yyyy').format(parsedDate);
+          headerTitle = DateFormat('EEEE, d MMMM').format(parsedDate);
         }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Date Group Header
             Padding(
-              padding: const EdgeInsets.only(top: 16.0, bottom: 8.0, left: 4.0),
-              child: Text(
-                headerTitle,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                ),
+              padding: const EdgeInsets.only(top: 12.0, bottom: 6.0, left: 4.0),
+              child: Row(
+                children: [
+                  CustomPillBadge(
+                    label: headerTitle,
+                    color: AppColors.primaryAccent,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Divider(
+                      color: isDark ? AppColors.borderDark : AppColors.border,
+                      height: 1,
+                    ),
+                  ),
+                ],
               ),
             ),
-            // Group List
-            Card(
-              margin: EdgeInsets.zero,
-              elevation: 0,
-              color: isDark ? AppColors.surfaceCardDark : AppColors.surfaceCard,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(
-                  color: isDark ? AppColors.borderDark : AppColors.border,
-                  width: 1.0,
-                ),
-              ),
+            PremiumCard(
+              padding: EdgeInsets.zero,
               child: ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -123,15 +104,14 @@ class RecentEntriesList extends ConsumerWidget {
                 ),
                 itemBuilder: (context, subIndex) {
                   final exp = list[subIndex];
-                  
-                  // Find category matching categoryId
+
                   final category = categories.firstWhere(
                     (cat) => cat.id == exp.categoryId,
                     orElse: () => Category(
                       id: exp.categoryId,
                       name: exp.categoryId.replaceAll('_', ' '),
-                      iconAsset: 'assets/icons/tag.svg',
-                      colorHex: '#7A9E5A',
+                      iconAsset: 'receipt_long',
+                      colorHex: '#10B981',
                     ),
                   );
 
@@ -144,27 +124,25 @@ class RecentEntriesList extends ConsumerWidget {
                         onExpenseTap!(exp);
                       }
                     },
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(20),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                       child: Row(
                         children: [
-                          // Custom Category Icon
                           Container(
-                            width: 42,
-                            height: 42,
-                            padding: const EdgeInsets.all(10),
+                            width: 40,
+                            height: 40,
                             decoration: BoxDecoration(
-                              color: catColor.withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(12),
+                              color: catColor.withOpacity(0.12),
+                              shape: BoxShape.circle,
                             ),
-                            child: SvgPicture.asset(
-                              category.iconAsset,
-                              colorFilter: ColorFilter.mode(catColor, BlendMode.srcIn),
+                            child: Icon(
+                              _getIconData(category.iconAsset),
+                              size: 18,
+                              color: catColor,
                             ),
                           ),
                           const SizedBox(width: 14),
-                          // Category & Notes Column
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,33 +151,32 @@ class RecentEntriesList extends ConsumerWidget {
                                   category.name,
                                   style: theme.textTheme.bodyLarge?.copyWith(
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 15,
+                                    fontSize: 14,
                                     color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  exp.note ?? 'No description',
+                                  (exp.note != null && exp.note!.isNotEmpty) ? exp.note! : 'No note added',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontSize: 13,
+                                    fontSize: 12,
                                     color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          // Amount & Time Column
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
-                                '${settings.currency} ${exp.amount.toStringAsFixed(0)}',
-                                style: theme.textTheme.bodyLarge?.copyWith(
+                                '$activeCurrency ${exp.amount.toStringAsFixed(0)}',
+                                style: theme.textTheme.titleMedium?.copyWith(
                                   fontFamily: 'Space Grotesk',
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 15,
+                                  fontSize: 14,
                                   color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
                                 ),
                               ),
@@ -207,7 +184,7 @@ class RecentEntriesList extends ConsumerWidget {
                               Text(
                                 timeText,
                                 style: theme.textTheme.labelLarge?.copyWith(
-                                  fontSize: 11,
+                                  fontSize: 10,
                                   color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
                                 ),
                               ),
@@ -224,5 +201,26 @@ class RecentEntriesList extends ConsumerWidget {
         );
       },
     );
+  }
+
+  IconData _getIconData(String iconAsset) {
+    switch (iconAsset) {
+      case 'local_gas_station':
+        return Icons.local_gas_station;
+      case 'restaurant':
+        return Icons.restaurant;
+      case 'home':
+        return Icons.home;
+      case 'phone_android':
+        return Icons.phone_android;
+      case 'two_wheeler':
+        return Icons.two_wheeler;
+      case 'shopping_bag':
+        return Icons.shopping_bag;
+      case 'medical_services':
+        return Icons.medical_services;
+      default:
+        return Icons.receipt_long_outlined;
+    }
   }
 }
