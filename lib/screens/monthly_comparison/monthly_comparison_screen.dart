@@ -14,8 +14,16 @@ class MonthlyComparisonScreen extends ConsumerStatefulWidget {
 }
 
 class _MonthlyComparisonScreenState extends ConsumerState<MonthlyComparisonScreen> {
-  String _baseMonth = '2026-07';
-  String _targetMonth = '2026-06';
+  late String _baseMonth;
+  late String _targetMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _baseMonth = DateFormat('yyyy-MM').format(now);
+    _targetMonth = DateFormat('yyyy-MM').format(DateTime(now.year, now.month - 1, 1));
+  }
 
   String _formatMonthLabel(String yearMonth) {
     try {
@@ -32,7 +40,14 @@ class _MonthlyComparisonScreenState extends ConsumerState<MonthlyComparisonScree
 
     final allExpenses = ref.read(expensesProvider);
     final monthSet = allExpenses.map((e) => DateFormat('yyyy-MM').format(e.date)).toSet();
-    monthSet.addAll(['2026-07', '2026-06', '2026-05', '2026-04']);
+    
+    // Dynamically include last 12 months
+    final now = DateTime.now();
+    for (int i = 0; i < 12; i++) {
+      final d = DateTime(now.year, now.month - i, 1);
+      monthSet.add(DateFormat('yyyy-MM').format(d));
+    }
+
     final availableMonths = monthSet.toList()..sort((a, b) => b.compareTo(a));
 
     showModalBottomSheet(
@@ -57,23 +72,28 @@ class _MonthlyComparisonScreenState extends ConsumerState<MonthlyComparisonScree
                 ),
               ),
               const Divider(height: 1),
-              ...availableMonths.map((m) {
-                final isSelected = isBase ? (_baseMonth == m) : (_targetMonth == m);
-                return ListTile(
-                  title: Text(_formatMonthLabel(m)),
-                  trailing: isSelected ? const Icon(Icons.check, color: AppColors.primary) : null,
-                  onTap: () {
-                    setState(() {
-                      if (isBase) {
-                        _baseMonth = m;
-                      } else {
-                        _targetMonth = m;
-                      }
-                    });
-                    Navigator.pop(context);
-                  },
-                );
-              }),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: availableMonths.map((m) {
+                    final isSelected = isBase ? (_baseMonth == m) : (_targetMonth == m);
+                    return ListTile(
+                      title: Text(_formatMonthLabel(m)),
+                      trailing: isSelected ? const Icon(Icons.check, color: AppColors.primary) : null,
+                      onTap: () {
+                        setState(() {
+                          if (isBase) {
+                            _baseMonth = m;
+                          } else {
+                            _targetMonth = m;
+                          }
+                        });
+                        Navigator.pop(context);
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
               const SizedBox(height: 12),
             ],
           ),
@@ -128,6 +148,8 @@ class _MonthlyComparisonScreenState extends ConsumerState<MonthlyComparisonScree
       return bSpent.compareTo(aSpent);
     });
 
+    final bool isEmptyBoth = baseTotal == 0 && targetTotal == 0;
+
     return Scaffold(
       backgroundColor: isDark ? AppColors.backgroundDark : AppColors.background,
       appBar: AppBar(
@@ -155,7 +177,7 @@ class _MonthlyComparisonScreenState extends ConsumerState<MonthlyComparisonScree
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Month Picker Row
+              // Month Picker Row
               Row(
                 children: [
                   Expanded(
@@ -182,10 +204,12 @@ class _MonthlyComparisonScreenState extends ConsumerState<MonthlyComparisonScree
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  _formatMonthLabel(_baseMonth),
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                  overflow: TextOverflow.ellipsis,
+                                Expanded(
+                                  child: Text(
+                                    _formatMonthLabel(_baseMonth),
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                                 const Icon(Icons.arrow_drop_down, size: 18),
                               ],
@@ -220,10 +244,12 @@ class _MonthlyComparisonScreenState extends ConsumerState<MonthlyComparisonScree
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  _formatMonthLabel(_targetMonth),
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                  overflow: TextOverflow.ellipsis,
+                                Expanded(
+                                  child: Text(
+                                    _formatMonthLabel(_targetMonth),
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                                 const Icon(Icons.arrow_drop_down, size: 18),
                               ],
@@ -237,137 +263,34 @@ class _MonthlyComparisonScreenState extends ConsumerState<MonthlyComparisonScree
               ),
               const SizedBox(height: 16),
 
-              // 2. Spent Summary Hero Card
-              Card(
-                margin: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: isDark ? AppColors.borderDark : AppColors.border),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(18.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Total Comparison',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              if (isEmptyBoth) ...[
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Center(
+                      child: Column(
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${settings.currency} ${baseTotal.toStringAsFixed(0)}',
-                                style: theme.textTheme.headlineMedium?.copyWith(
-                                  fontFamily: 'Space Grotesk',
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
-                                ),
-                              ),
-                              Text(
-                                _formatMonthLabel(_baseMonth),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                                ),
-                              ),
-                            ],
+                          Icon(Icons.compare_arrows, size: 48, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No Expenses to Compare',
+                            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                           ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                '${settings.currency} ${targetTotal.toStringAsFixed(0)}',
-                                style: theme.textTheme.headlineMedium?.copyWith(
-                                  fontFamily: 'Space Grotesk',
-                                  fontWeight: FontWeight.w500,
-                                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                                ),
-                              ),
-                              Text(
-                                _formatMonthLabel(_targetMonth),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const Divider(height: 24),
-                      // Delta status row
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: deltaAmount > 0
-                                  ? AppColors.danger.withOpacity(0.12)
-                                  : (deltaAmount < 0 
-                                      ? AppColors.primary.withOpacity(0.12)
-                                      : Colors.grey.withOpacity(0.12)),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  deltaAmount > 0 
-                                      ? Icons.trending_up 
-                                      : (deltaAmount < 0 ? Icons.trending_down : Icons.trending_flat),
-                                  color: deltaAmount > 0 
-                                      ? AppColors.danger 
-                                      : (deltaAmount < 0 ? AppColors.primary : Colors.grey),
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  deltaAmount > 0 
-                                      ? '+${deltaPercent.toStringAsFixed(1)}%' 
-                                      : '${deltaPercent.toStringAsFixed(1)}%',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: deltaAmount > 0 
-                                        ? AppColors.danger 
-                                        : (deltaAmount < 0 ? AppColors.primary : Colors.grey),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              deltaAmount > 0
-                                  ? 'Spent ${settings.currency} ${deltaAmount.abs().toStringAsFixed(0)} more than comparison month.'
-                                  : (deltaAmount < 0
-                                      ? 'Saved ${settings.currency} ${deltaAmount.abs().toStringAsFixed(0)} compared to comparison month!'
-                                      : 'Spending was identical!'),
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                              ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Add expenses in either ${_formatMonthLabel(_baseMonth)} or ${_formatMonthLabel(_targetMonth)} to view side-by-side analytics.',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
                             ),
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-
-              // 3. FL Double Bar Chart Component
-              if (activeCategories.isNotEmpty) ...[
+              ] else ...[
+                // Spent Summary Hero Card
                 Card(
                   margin: EdgeInsets.zero,
                   shape: RoundedRectangleBorder(
@@ -375,221 +298,161 @@ class _MonthlyComparisonScreenState extends ConsumerState<MonthlyComparisonScree
                     side: BorderSide(color: isDark ? AppColors.borderDark : AppColors.border),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.all(18.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Category Spends Chart',
-                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 6),
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Container(width: 12, height: 12, color: AppColors.primary),
-                            const SizedBox(width: 6),
                             Text(
-                              _formatMonthLabel(_baseMonth),
-                              style: const TextStyle(fontSize: 11),
+                              'Total Spent Comparison',
+                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                             ),
-                            const SizedBox(width: 16),
-                            Container(width: 12, height: 12, color: AppColors.accentWarning),
-                            const SizedBox(width: 6),
-                            Text(
-                              _formatMonthLabel(_targetMonth),
-                              style: const TextStyle(fontSize: 11),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: (deltaAmount > 0 ? AppColors.danger : AppColors.primary).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(100),
+                              ),
+                              child: Text(
+                                '${deltaAmount >= 0 ? "+" : ""}${deltaPercent.toStringAsFixed(1)}%',
+                                style: TextStyle(
+                                  color: deltaAmount > 0 ? AppColors.danger : AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 24),
-                        // FL double bar chart container
-                        SizedBox(
-                          height: 180,
-                          child: BarChart(
-                            BarChartData(
-                              alignment: BarChartAlignment.spaceAround,
-                              maxY: activeCategories.take(4).map((c) {
-                                final base = baseCatSpent[c.id] ?? 0.0;
-                                final target = targetCatSpent[c.id] ?? 0.0;
-                                return base > target ? base : target;
-                              }).fold<double>(1000.0, (prev, val) => val > prev ? val : prev) * 1.15,
-                              barTouchData: BarTouchData(enabled: true),
-                              titlesData: FlTitlesData(
-                                show: true,
-                                bottomTitles: AxisTitles(
-                                  sideTitles: SideTitles(
-                                    showTitles: true,
-                                    getTitlesWidget: (value, meta) {
-                                      final index = value.toInt();
-                                      if (index >= 0 && index < activeCategories.take(4).length) {
-                                        return Padding(
-                                          padding: const EdgeInsets.only(top: 6.0),
-                                          child: Text(
-                                            activeCategories[index].name,
-                                            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        );
-                                      }
-                                      return const Text('');
-                                    },
-                                  ),
-                                ),
-                                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                              ),
-                              gridData: const FlGridData(show: false),
-                              borderData: FlBorderData(show: false),
-                              barGroups: List.generate(activeCategories.take(4).length, (i) {
-                                final cat = activeCategories[i];
-                                final baseVal = baseCatSpent[cat.id] ?? 0.0;
-                                final targetVal = targetCatSpent[cat.id] ?? 0.0;
-                                return BarChartGroupData(
-                                  x: i,
-                                  barRods: [
-                                    BarChartRodData(
-                                      toY: baseVal,
-                                      color: AppColors.primary,
-                                      width: 12,
-                                      borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _formatMonthLabel(_baseMonth),
+                                    style: theme.textTheme.labelMedium?.copyWith(
+                                      color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
                                     ),
-                                    BarChartRodData(
-                                      toY: targetVal,
-                                      color: AppColors.accentWarning,
-                                      width: 12,
-                                      borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${settings.currency} ${baseTotal.toStringAsFixed(0)}',
+                                    style: theme.textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(width: 1, height: 40, color: isDark ? AppColors.borderDark : AppColors.border),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 16.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _formatMonthLabel(_targetMonth),
+                                      style: theme.textTheme.labelMedium?.copyWith(
+                                        color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${settings.currency} ${targetTotal.toStringAsFixed(0)}',
+                                      style: theme.textTheme.titleLarge?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
+                                      ),
                                     ),
                                   ],
-                                );
-                              }),
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 20),
-              ],
 
-              // 4. Category-wise Breakdown Ledger
-              Text(
-                'Category Spends Breakdown',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
+                // Category Breakdown Comparison List
+                Text(
+                  'Category Differences',
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                 ),
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(height: 10),
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: activeCategories.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, idx) {
+                    final cat = activeCategories[idx];
+                    final bSpent = baseCatSpent[cat.id] ?? 0.0;
+                    final tSpent = targetCatSpent[cat.id] ?? 0.0;
+                    final diff = bSpent - tSpent;
+                    final color = AppColors.getCategoryColor(cat.name, cat.colorHex);
 
-              if (activeCategories.isEmpty) ...[
-                Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: isDark ? AppColors.borderDark : AppColors.border),
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.all(32.0),
-                    child: Center(
-                      child: Text('No spending records found in either month.'),
-                    ),
-                  ),
-                ),
-              ] else ...[
-                Card(
-                  margin: EdgeInsets.zero,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: isDark ? AppColors.borderDark : AppColors.border),
-                  ),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: activeCategories.length,
-                    separatorBuilder: (context, idx) => Divider(
-                      height: 1,
-                      color: isDark ? AppColors.borderDark : AppColors.border,
-                    ),
-                    itemBuilder: (context, index) {
-                      final cat = activeCategories[index];
-                      final baseVal = baseCatSpent[cat.id] ?? 0.0;
-                      final targetVal = targetCatSpent[cat.id] ?? 0.0;
-                      final diff = baseVal - targetVal;
-                      final double percentDiff = targetVal > 0 ? (diff / targetVal) * 100 : 0.0;
-
-                      final catColor = AppColors.getCategoryColor(cat.name, cat.colorHex);
-
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+                    return Card(
+                      margin: EdgeInsets.zero,
+                      child: Padding(
+                        padding: const EdgeInsets.all(14.0),
                         child: Row(
                           children: [
-                            // Category Icon Container
                             Container(
-                              width: 32,
-                              height: 32,
-                              padding: const EdgeInsets.all(6),
+                              width: 36,
+                              height: 36,
+                              padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: catColor.withOpacity(0.08),
-                                shape: BoxShape.circle,
+                                color: color.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
                               ),
                               child: SvgPicture.asset(
-                                cat.iconAsset.isNotEmpty ? cat.iconAsset : 'assets/icons/tag.svg',
-                                colorFilter: ColorFilter.mode(catColor, BlendMode.srcIn),
+                                cat.iconAsset,
+                                colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            // Category Name and comparison details
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     cat.name,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                   ),
-                                  const SizedBox(height: 4),
+                                  const SizedBox(height: 2),
                                   Text(
-                                    '${settings.currency} ${baseVal.toStringAsFixed(0)} vs ${settings.currency} ${targetVal.toStringAsFixed(0)}',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                                    ),
+                                    '${settings.currency} ${bSpent.toStringAsFixed(0)} vs ${settings.currency} ${tSpent.toStringAsFixed(0)}',
+                                    style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12),
                                   ),
                                 ],
                               ),
                             ),
-                            // Delta Badge Pill
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: diff > 0
-                                    ? AppColors.danger.withOpacity(0.12)
-                                    : (diff < 0 
-                                        ? AppColors.primary.withOpacity(0.12)
-                                        : Colors.grey.withOpacity(0.12)),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                diff > 0 
-                                    ? '+${percentDiff.toStringAsFixed(0)}%' 
-                                    : (diff < 0 ? '${percentDiff.toStringAsFixed(0)}%' : '0%'),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: diff > 0 
-                                      ? AppColors.danger 
-                                      : (diff < 0 ? AppColors.primary : Colors.grey),
-                                ),
+                            Text(
+                              '${diff >= 0 ? "+" : ""}${settings.currency} ${diff.toStringAsFixed(0)}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: diff > 0 ? AppColors.danger : (diff < 0 ? AppColors.primary : Colors.grey),
                               ),
                             ),
                           ],
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 ),
               ],
-              const SizedBox(height: 24),
+              const SizedBox(height: 30),
             ],
           ),
         ),

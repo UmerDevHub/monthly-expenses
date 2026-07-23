@@ -7,6 +7,7 @@ class HiveService {
   static const String recurringBoxName = 'recurring_expenses';
   static const String insightsBoxName = 'monthly_insights';
   static const String settingsBoxName = 'app_settings';
+  static const String historyBoxName = 'history_records';
 
   static Future<void> init() async {
     await Hive.initFlutter();
@@ -17,6 +18,7 @@ class HiveService {
     Hive.registerAdapter(RecurringExpenseAdapter());
     Hive.registerAdapter(MonthlyInsightAdapter());
     Hive.registerAdapter(AppSettingsAdapter());
+    Hive.registerAdapter(HistoryRecordAdapter());
 
     // Open Boxes
     await Hive.openBox<Expense>(expensesBoxName);
@@ -24,6 +26,7 @@ class HiveService {
     await Hive.openBox<RecurringExpense>(recurringBoxName);
     await Hive.openBox<MonthlyInsight>(insightsBoxName);
     await Hive.openBox<AppSettings>(settingsBoxName);
+    await Hive.openBox<HistoryRecord>(historyBoxName);
 
     // Seed default database if empty
     await seedDefaultData();
@@ -97,4 +100,6 @@ class HiveService {
   static Box<RecurringExpense> get recurringBox => Hive.box<RecurringExpense>(recurringBoxName);
   static Box<MonthlyInsight> get insightsBox => Hive.box<MonthlyInsight>(insightsBoxName);
   static Box<AppSettings> get settingsBox => Hive.box<AppSettings>(settingsBoxName);
+  static Box<HistoryRecord> get historyBox => Hive.box<HistoryRecord>(historyBoxName);
 }
+

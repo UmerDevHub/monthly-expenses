@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import '../../models/models.dart';
 import '../../providers/app_providers.dart';
+import '../../services/hive_service.dart';
 import '../../theme/app_theme.dart';
 import '../recurring_expenses/recurring_expenses_screen.dart';
 
@@ -267,30 +270,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     _buildDivider(isDark),
                     _buildSettingRow(
-                      icon: Icons.cloud_queue_outlined,
+                      icon: Icons.cloud_sync_outlined,
                       iconBgColor: const Color(0xFFEEF1F6),
                       iconColor: const Color(0xFF5A78A6),
-                      title: 'Backup & Restore',
-                      description: 'Backup your data locally (coming soon)',
-                      badge: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.grey[800] : Colors.grey[200],
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          'Coming Soon',
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                      onTap: () => _showComingSoonSnackBar(context, 'Local Backups'),
+                      title: 'JSON Backup & Restore',
+                      description: 'Export data to JSON file or restore past backups',
+                      value: 'Available',
+                      onTap: () => _showBackupRestoreSheet(context),
                       theme: theme,
                       isDark: isDark,
                     ),
+
                     _buildDivider(isDark),
                     _buildSettingRow(
                       icon: Icons.info_outline,
@@ -1395,7 +1385,365 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  void _showBackupRestoreSheet(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: isDark ? AppColors.surfaceCardDark : Colors.white,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'JSON Backup & Restore',
+                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Export your local expense history as a JSON backup or restore previously saved data.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                
+                // Export Card Button
+                Card(
+                  margin: EdgeInsets.zero,
+                  child: ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.download, color: AppColors.primary),
+                    ),
+                    title: const Text('Export JSON Backup', style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: const Text('Generate & copy JSON backup string'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _performJsonExport(context);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Restore Card Button
+                Card(
+                  margin: EdgeInsets.zero,
+                  child: ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF5A78A6).withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.upload, color: Color(0xFF5A78A6)),
+                    ),
+                    title: const Text('Restore from JSON', style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: const Text('Paste JSON backup data to restore'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _performJsonRestoreDialog(context);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _performJsonExport(BuildContext context) {
+    final expenses = HiveService.expensesBox.values.toList();
+    final categories = HiveService.categoriesBox.values.toList();
+    final recurring = HiveService.recurringBox.values.toList();
+    final settings = HiveService.settingsBox.get('app_settings');
+
+    final data = {
+      'version': '1.0',
+      'exportedAt': DateTime.now().toIso8601String(),
+      'expenses': expenses.map((e) => {
+        'id': e.id,
+        'categoryId': e.categoryId,
+        'amount': e.amount,
+        'date': e.date.toIso8601String(),
+        'note': e.note,
+        'paymentMethod': e.paymentMethod,
+        'tags': e.tags,
+      }).toList(),
+      'categories': categories.map((c) => {
+        'id': c.id,
+        'name': c.name,
+        'iconAsset': c.iconAsset,
+        'colorHex': c.colorHex,
+        'budgetLimit': c.budgetLimit,
+      }).toList(),
+      'recurring': recurring.map((r) => {
+        'id': r.id,
+        'title': r.title,
+        'categoryId': r.categoryId,
+        'amount': r.amount,
+        'frequency': r.frequency,
+        'nextDueDate': r.nextDueDate.toIso8601String(),
+        'isAutoPay': r.isAutoPay,
+        'reminderDaysBefore': r.reminderDaysBefore,
+      }).toList(),
+      'settings': settings != null ? {
+        'userName': settings.userName,
+        'currency': settings.currency,
+        'darkMode': settings.darkMode,
+        'appLockEnabled': settings.appLockEnabled,
+        'overallMonthlyLimit': settings.overallMonthlyLimit,
+        'geminiApiKey': settings.geminiApiKey,
+      } : null,
+    };
+
+    final jsonString = const JsonEncoder.withIndent('  ').convert(data);
+
+    // Log the backup action
+    ref.read(historyLogProvider.notifier).addLog(
+      'settings_backup',
+      'JSON Backup Created',
+      'Exported ${expenses.length} expenses and app configuration',
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('JSON Backup Data'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Copy the JSON data below to keep a safe offline backup:'),
+              const SizedBox(height: 12),
+              Container(
+                maxHeight: 200,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[900],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    jsonString,
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.greenAccent),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+              icon: const Icon(Icons.copy, size: 16),
+              label: const Text('Copy to Clipboard'),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: jsonString));
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('JSON Backup copied to clipboard!'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _performJsonRestoreDialog(BuildContext context) {
+    final controller = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Restore from JSON Backup'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Paste your exported JSON backup data string below:'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                maxLines: 6,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                decoration: const InputDecoration(
+                  hintText: 'Paste {"version": "1.0", ...}',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+              child: const Text('Restore Data'),
+              onPressed: () async {
+                final jsonStr = controller.text.trim();
+                if (jsonStr.isEmpty) return;
+
+                try {
+                  final Map<String, dynamic> data = jsonDecode(jsonStr);
+
+                  // 1. Restore Expenses
+                  if (data['expenses'] is List) {
+                    final expList = (data['expenses'] as List).map((item) {
+                      return Expense(
+                        id: item['id'],
+                        categoryId: item['categoryId'],
+                        amount: (item['amount'] as num).toDouble(),
+                        date: DateTime.parse(item['date']),
+                        note: item['note'],
+                        paymentMethod: item['paymentMethod'] ?? 'Cash',
+                        tags: List<String>.from(item['tags'] ?? []),
+                      );
+                    }).toList();
+
+                    await HiveService.expensesBox.clear();
+                    for (var e in expList) {
+                      await HiveService.expensesBox.put(e.id, e);
+                    }
+                  }
+
+                  // 2. Restore Categories
+                  if (data['categories'] is List) {
+                    final catList = (data['categories'] as List).map((item) {
+                      return Category(
+                        id: item['id'],
+                        name: item['name'],
+                        iconAsset: item['iconAsset'],
+                        colorHex: item['colorHex'],
+                        budgetLimit: item['budgetLimit'] != null ? (item['budgetLimit'] as num).toDouble() : null,
+                      );
+                    }).toList();
+
+                    await HiveService.categoriesBox.clear();
+                    for (var c in catList) {
+                      await HiveService.categoriesBox.put(c.id, c);
+                    }
+                  }
+
+                  // 3. Restore Recurring
+                  if (data['recurring'] is List) {
+                    final recList = (data['recurring'] as List).map((item) {
+                      return RecurringExpense(
+                        id: item['id'],
+                        title: item['title'],
+                        categoryId: item['categoryId'],
+                        amount: (item['amount'] as num).toDouble(),
+                        frequency: item['frequency'],
+                        nextDueDate: DateTime.parse(item['nextDueDate']),
+                        isAutoPay: item['isAutoPay'] ?? false,
+                        reminderDaysBefore: item['reminderDaysBefore'] ?? 3,
+                      );
+                    }).toList();
+
+                    await HiveService.recurringBox.clear();
+                    for (var r in recList) {
+                      await HiveService.recurringBox.put(r.id, r);
+                    }
+                  }
+
+                  // 4. Restore Settings
+                  if (data['settings'] is Map) {
+                    final sMap = data['settings'];
+                    final settingsObj = AppSettings(
+                      userName: sMap['userName'] ?? 'User',
+                      currency: sMap['currency'] ?? 'Rs.',
+                      darkMode: sMap['darkMode'] ?? false,
+                      appLockEnabled: sMap['appLockEnabled'] ?? false,
+                      overallMonthlyLimit: sMap['overallMonthlyLimit'] != null ? (sMap['overallMonthlyLimit'] as num).toDouble() : 55000.0,
+                      geminiApiKey: sMap['geminiApiKey'],
+                    );
+                    await HiveService.settingsBox.put('app_settings', settingsObj);
+                  }
+
+                  // Invalidate riverpod providers
+                  ref.invalidate(expensesProvider);
+                  ref.invalidate(categoriesProvider);
+                  ref.invalidate(recurringExpensesProvider);
+                  ref.invalidate(appSettingsProvider);
+
+                  // Log restoration action
+                  ref.read(historyLogProvider.notifier).addLog(
+                    'settings_restore',
+                    'Backup Restored',
+                    'Successfully restored data from JSON backup',
+                  );
+
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Backup data restored successfully!'),
+                        behavior: SnackBarBehavior.floating,
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (err) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to restore backup: $err'),
+                        behavior: SnackBarBehavior.floating,
+                        backgroundColor: AppColors.danger,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showAboutDialog(BuildContext context) {
+
     showAboutDialog(
       context: context,
       applicationName: 'Kharcha',

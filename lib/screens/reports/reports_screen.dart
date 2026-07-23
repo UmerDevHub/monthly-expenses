@@ -43,16 +43,26 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     final daysInMonth = DateTime(monthDateTime.year, monthDateTime.month + 1, 0).day;
     final dailyAverage = totalSpent > 0 ? (totalSpent / daysInMonth) : 0.0;
 
-    // Hardcoded historical baseline (Jun 2026) to calculate comparison trends
-    // July 2026: 42,350. June 2026: 35,820. Entries: 23.
-    const double juneSpent = 35820.0;
-    const double juneDailyAvg = juneSpent / 30.0;
-    const int juneEntries = 23;
+    // Previous month baseline calculation from Hive
+    final prevMonthDate = DateTime(monthDateTime.year, monthDateTime.month - 1, 1);
+    final prevMonthKey = DateFormat('yyyy-MM').format(prevMonthDate);
+    final allExpensesList = HiveService.expensesBox.values.toList();
+    final prevMonthExpenses = allExpensesList.where((e) {
+      final y = e.date.year;
+      final m = e.date.month.toString().padLeft(2, '0');
+      return '$y-$m' == prevMonthKey;
+    }).toList();
 
-    // Trend calculations
-    final spentTrendPercent = juneSpent > 0 ? ((totalSpent - juneSpent) / juneSpent * 100) : 0.0;
-    final dailyAvgTrendPercent = juneDailyAvg > 0 ? ((dailyAverage - juneDailyAvg) / juneDailyAvg * 100) : 0.0;
-    final entriesTrendDiff = totalEntries - juneEntries;
+    final double prevMonthSpent = prevMonthExpenses.fold(0.0, (sum, e) => sum + e.amount);
+    final double prevDailyAvg = prevMonthSpent > 0 ? (prevMonthSpent / DateTime(prevMonthDate.year, prevMonthDate.month + 1, 0).day) : 0.0;
+    final int prevEntries = prevMonthExpenses.length;
+
+    // Trend calculations vs previous month
+    final spentTrendPercent = prevMonthSpent > 0 ? ((totalSpent - prevMonthSpent) / prevMonthSpent * 100) : 0.0;
+    final dailyAvgTrendPercent = prevDailyAvg > 0 ? ((dailyAverage - prevDailyAvg) / prevDailyAvg * 100) : 0.0;
+    final entriesTrendDiff = totalEntries - prevEntries;
+    final prevMonthName = DateFormat('MMM').format(prevMonthDate);
+
 
     // Sort category summaries by spent amount descending
     final sortedSummaries = List<CategorySummary>.from(categorySummaries)
@@ -214,7 +224,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                       child: _buildMetricCard(
                         title: 'Total Spent',
                         value: '${settings.currency} ${totalSpent.toStringAsFixed(0)}',
-                        trend: '${spentTrendPercent >= 0 ? "+" : ""}${spentTrendPercent.toStringAsFixed(0)}% vs Jun 2026',
+                        trend: prevMonthSpent == 0 ? 'First period' : '${spentTrendPercent >= 0 ? "+" : ""}${spentTrendPercent.toStringAsFixed(0)}% vs $prevMonthName',
                         icon: Icons.account_balance_wallet_outlined,
                         theme: theme,
                         isDark: isDark,
@@ -225,7 +235,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                       child: _buildMetricCard(
                         title: 'Daily Average',
                         value: '${settings.currency} ${dailyAverage.toStringAsFixed(0)}',
-                        trend: '${dailyAvgTrendPercent >= 0 ? "+" : ""}${dailyAvgTrendPercent.toStringAsFixed(0)}% vs Jun 2026',
+                        trend: prevMonthSpent == 0 ? 'First period' : '${dailyAvgTrendPercent >= 0 ? "+" : ""}${dailyAvgTrendPercent.toStringAsFixed(0)}% vs $prevMonthName',
                         icon: Icons.bar_chart_outlined,
                         theme: theme,
                         isDark: isDark,
@@ -236,7 +246,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                       child: _buildMetricCard(
                         title: 'Total Entries',
                         value: '$totalEntries',
-                        trend: '${entriesTrendDiff >= 0 ? "+" : ""}$entriesTrendDiff vs Jun 2026',
+                        trend: prevEntries == 0 ? 'First period' : '${entriesTrendDiff >= 0 ? "+" : ""}$entriesTrendDiff vs $prevMonthName',
                         icon: Icons.receipt_long_outlined,
                         theme: theme,
                         isDark: isDark,
@@ -244,6 +254,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                     ),
                   ],
                 ),
+
                 const SizedBox(height: 24),
 
                 // 4. Spending by Category Donut Chart
@@ -761,10 +772,48 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   }
 
   Widget _buildBarChartSection(ThemeData theme, bool isDark) {
-    // Exact month-to-month bar statistics from the screenshot:
-    // Feb: 28,450, Mar: 32,180, Apr: 30,560, May: 36,890, Jun: 35,820, Jul: 42,350
-    final List<double> historicalSpents = [28450, 32180, 30560, 36890, 35820, 42350];
-    final List<String> historicalMonths = ['Feb 2026', 'Mar 2026', 'Apr 2026', 'May 2026', 'Jun 2026', 'Jul 2026'];
+    int monthCount = 6;
+    if (_selectedMonthRange == 'Last 3 Months') monthCount = 3;
+    if (_selectedMonthRange == 'Last 12 Months') monthCount = 12;
+
+    final selectedMonthStr = ref.watch(selectedMonthProvider);
+    final selectedDate = DateTime.parse('$selectedMonthStr-01');
+
+    final List<double> historicalSpents = [];
+    final List<String> historicalMonths = [];
+
+    final allExpenses = HiveService.expensesBox.values.toList();
+
+    for (int i = monthCount - 1; i >= 0; i--) {
+      final d = DateTime(selectedDate.year, selectedDate.month - i, 1);
+      final mKey = DateFormat('yyyy-MM').format(d);
+      final mLabel = DateFormat('MMM').format(d);
+
+      final totalForMonth = allExpenses.where((e) {
+        final y = e.date.year;
+        final m = e.date.month.toString().padLeft(2, '0');
+        return '$y-$m' == mKey;
+      }).fold(0.0, (sum, e) => sum + e.amount);
+
+      historicalSpents.add(totalForMonth);
+      historicalMonths.add(mLabel);
+    }
+
+    final maxSpent = historicalSpents.reduce((a, b) => a > b ? a : b);
+    if (maxSpent == 0) {
+      return Container(
+        height: 160,
+        alignment: Alignment.center,
+        child: Text(
+          'No monthly spending data logged for this range.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+          ),
+        ),
+      );
+    }
+
+    final double calculatedMaxY = (maxSpent * 1.2).clamp(1000.0, 1000000.0);
 
     final barGroups = List.generate(historicalSpents.length, (i) {
       return BarChartGroupData(
@@ -773,11 +822,11 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
           BarChartRodData(
             toY: historicalSpents[i],
             color: AppColors.primary,
-            width: 24,
+            width: monthCount > 6 ? 14 : 22,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
           ),
         ],
-        showingTooltipIndicators: [0],
+        showingTooltipIndicators: historicalSpents[i] > 0 ? [0] : [],
       );
     });
 
@@ -786,7 +835,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
       child: BarChart(
         BarChartData(
           alignment: BarChartAlignment.spaceAround,
-          maxY: 50000,
+          maxY: calculatedMaxY,
           barTouchData: BarTouchData(
             enabled: false,
             touchTooltipData: BarTouchTooltipData(
@@ -794,6 +843,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               tooltipPadding: EdgeInsets.zero,
               tooltipMargin: 6,
               getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                if (rod.toY == 0) return null;
                 return BarTooltipItem(
                   NumberFormat.compact().format(rod.toY),
                   theme.textTheme.labelLarge!.copyWith(
@@ -832,15 +882,13 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 30,
+                reservedSize: 32,
                 getTitlesWidget: (double value, TitleMeta meta) {
-                  if (value % 10000 == 0) {
-                    return Text(
-                      '${(value / 1000).toStringAsFixed(0)}K',
-                      style: theme.textTheme.labelLarge?.copyWith(fontSize: 9),
-                    );
-                  }
-                  return const SizedBox();
+                  if (value == 0 || value == calculatedMaxY) return const SizedBox();
+                  return Text(
+                    NumberFormat.compact().format(value),
+                    style: theme.textTheme.labelLarge?.copyWith(fontSize: 8.5),
+                  );
                 },
               ),
             ),
@@ -851,7 +899,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
             show: true,
             drawHorizontalLine: true,
             drawVerticalLine: false,
-            horizontalInterval: 10000,
+            horizontalInterval: calculatedMaxY / 3,
             getDrawingHorizontalLine: (value) {
               return FlLine(
                 color: isDark ? AppColors.borderDark : AppColors.border,
@@ -941,8 +989,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     final currentMonthStr = ref.read(selectedMonthProvider);
     final parts = currentMonthStr.split('-');
     if (parts.length != 2) return;
-    final year = int.tryParse(parts[0]) ?? 2026;
-    final month = int.tryParse(parts[1]) ?? 7;
+    final year = int.tryParse(parts[0]) ?? DateTime.now().year;
+    final month = int.tryParse(parts[1]) ?? DateTime.now().month;
     final date = DateTime(year, month);
     final newDate = DateTime(date.year, date.month + diff);
     ref.read(selectedMonthProvider.notifier).state =
@@ -951,6 +999,14 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
 
   void _showMonthSelector(BuildContext context) {
     final selectedMonth = ref.read(selectedMonthProvider);
+    final now = DateTime.now();
+
+    final List<String> monthKeys = [];
+    for (int i = 0; i < 12; i++) {
+      final d = DateTime(now.year, now.month - i, 1);
+      monthKeys.add(DateFormat('yyyy-MM').format(d));
+    }
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -961,36 +1017,40 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ListTile(
-                title: const Text('July 2026'),
-                trailing: selectedMonth == '2026-07' ? const Icon(Icons.check, color: AppColors.primary) : null,
-                onTap: () {
-                  ref.read(selectedMonthProvider.notifier).state = '2026-07';
-                  Navigator.pop(context);
-                },
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  'Select Month',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
               ),
-              ListTile(
-                title: const Text('June 2026'),
-                trailing: selectedMonth == '2026-06' ? const Icon(Icons.check, color: AppColors.primary) : null,
-                onTap: () {
-                  ref.read(selectedMonthProvider.notifier).state = '2026-06';
-                  Navigator.pop(context);
-                },
+              const Divider(height: 1),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: monthKeys.map((mk) {
+                    final d = DateTime.parse('$mk-01');
+                    final label = DateFormat('MMMM yyyy').format(d);
+                    final isSelected = selectedMonth == mk;
+                    return ListTile(
+                      title: Text(label),
+                      trailing: isSelected ? const Icon(Icons.check, color: AppColors.primary) : null,
+                      onTap: () {
+                        ref.read(selectedMonthProvider.notifier).state = mk;
+                        Navigator.pop(context);
+                      },
+                    );
+                  }).toList(),
+                ),
               ),
-              ListTile(
-                title: const Text('May 2026'),
-                trailing: selectedMonth == '2026-05' ? const Icon(Icons.check, color: AppColors.primary) : null,
-                onTap: () {
-                  ref.read(selectedMonthProvider.notifier).state = '2026-05';
-                  Navigator.pop(context);
-                },
-              ),
+              const SizedBox(height: 12),
             ],
           ),
         );
       },
     );
   }
+
 
   Future<void> _exportReportAsPdf(
     BuildContext context,

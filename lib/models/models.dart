@@ -205,3 +205,34 @@ class AppSettings extends HiveObject {
     );
   }
 }
+
+@HiveType(typeId: 5)
+class HistoryRecord extends HiveObject {
+  @HiveField(0)
+  final String id;
+
+  @HiveField(1)
+  final String title;
+
+  @HiveField(2)
+  final String description;
+
+  @HiveField(3)
+  final String actionType; // 'expense_added', 'expense_edited', 'expense_deleted', 'category_added', 'category_edited', 'category_deleted', 'recurring_added', 'recurring_deleted', 'recurring_paid', 'settings_updated'
+
+  @HiveField(4)
+  final DateTime timestamp;
+
+  @HiveField(5)
+  final String? colorHex;
+
+  HistoryRecord({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.actionType,
+    required this.timestamp,
+    this.colorHex,
+  });
+}
+

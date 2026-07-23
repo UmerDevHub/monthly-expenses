@@ -114,6 +114,13 @@ Respond ONLY with the raw JSON array. Do not wrap in markdown code blocks.
   ) {
     final List<String> fallbacks = [];
     
+    if (totalSpent == 0 || categorySpends.isEmpty) {
+      fallbacks.add('Tip: You have no expenses logged for this month yet. Tap + to record your first transaction!');
+      fallbacks.add('Tip: Set monthly category budget limits in Settings to receive automatic spending alerts.');
+      fallbacks.add('Trend: Maintaining a clean, accurate ledger helps build long-term personal financial discipline.');
+      return fallbacks;
+    }
+
     // Check if any category exceeded budget
     bool foundAlert = false;
     for (var cat in categories) {
@@ -148,4 +155,5 @@ Respond ONLY with the raw JSON array. Do not wrap in markdown code blocks.
     
     return fallbacks;
   }
+
 }
