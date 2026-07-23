@@ -184,7 +184,8 @@ class AppSettings extends HiveObject {
     this.appLockEnabled = false,
     this.darkMode = false,
     this.geminiApiKey,
-    this.userName = 'Umer Nisar',
+    this.userName = 'Abdul Jabbar',
+
   });
 
   AppSettings copyWith({

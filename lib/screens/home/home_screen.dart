@@ -221,7 +221,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ),
                             ),
                             Text(
-                              settings.userName.isNotEmpty ? settings.userName : 'Umer Nisar',
+                              settings.userName.isNotEmpty ? settings.userName : 'Abdul Jabbar',
+
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w800,

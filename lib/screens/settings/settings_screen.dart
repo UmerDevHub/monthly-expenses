@@ -1647,8 +1647,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   if (data['settings'] is Map) {
                     final sMap = data['settings'];
                     final settingsObj = AppSettings(
-                      userName: sMap['userName'] ?? 'Umer Nisar',
-                      currency: sMap['currency'] ?? 'Rs.',
+                      userName: sMap['userName'] ?? 'Abdul Jabbar',
+                      currency: sMap['currency'] ?? 'QAR',
+
                       darkMode: sMap['darkMode'] ?? false,
                       appLockEnabled: sMap['appLockEnabled'] ?? false,
                       overallMonthlyLimit: sMap['overallMonthlyLimit'] != null ? (sMap['overallMonthlyLimit'] as num).toDouble() : 55000.0,

@@ -5,8 +5,10 @@ import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 import 'providers/app_providers.dart';
 import 'screens/main_navigation.dart';
+import 'screens/splash/splash_screen.dart';
 
 void main() async {
+
   WidgetsFlutterBinding.ensureInitialized();
   
   // Initialize Local Hive Database
@@ -36,7 +38,8 @@ class MyApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
-      home: const MainNavigation(),
+      home: const SplashScreen(),
     );
   }
 }
+
