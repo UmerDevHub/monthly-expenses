@@ -291,45 +291,44 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Month-to-Month Comparison',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
+                            Expanded(
+                              child: Text(
+                                'Monthly Comparison',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            Row(
-                              children: [
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => const MonthlyComparisonScreen(),
-                                      ),
-                                    );
-                                  },
-                                  style: TextButton.styleFrom(
-                                    padding: EdgeInsets.zero,
-                                    minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            const SizedBox(width: 6),
+                            InkWell(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const MonthlyComparisonScreen(),
                                   ),
-                                  child: const Text(
-                                    'Compare',
-                                    style: TextStyle(
-                                      color: AppColors.primary,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(6),
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                child: Text(
+                                  'Compare',
+                                  style: TextStyle(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                _buildRangeSelector(context),
-                              ],
+                              ),
                             ),
+                            const SizedBox(width: 4),
+                            _buildRangeSelector(context),
                           ],
                         ),
+
                         const SizedBox(height: 24),
                         _buildBarChartSection(theme, isDark, settings),
                       ],
@@ -474,23 +473,23 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                 Card(
                   margin: EdgeInsets.zero,
                   child: Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.all(14.0),
                     child: Row(
                       children: [
                         Container(
-                          width: 44,
-                          height: 44,
+                          width: 40,
+                          height: 40,
                           decoration: BoxDecoration(
                             color: AppColors.primary.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(
                             Icons.article_outlined,
                             color: AppColors.primary,
-                            size: 22,
+                            size: 20,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -500,16 +499,22 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
+                                  fontSize: 13,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 'Download PDF report for this month',
-                                style: theme.textTheme.labelLarge?.copyWith(fontSize: 11),
+                                style: theme.textTheme.labelLarge?.copyWith(fontSize: 10),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ),
                         ),
+                        const SizedBox(width: 8),
                         ElevatedButton.icon(
                           onPressed: () => _exportReportAsPdf(context, expenses, categories, monthName, totalSpent),
                           style: ElevatedButton.styleFrom(
@@ -519,16 +524,17 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                           ),
-                          icon: const Icon(Icons.download_outlined, size: 16),
-                          label: const Text('Export PDF', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          icon: const Icon(Icons.download_outlined, size: 14),
+                          label: const Text('Export PDF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 60), // Space at bottom
+
+                const SizedBox(height: 110), // Space at bottom to clear elevated bottom nav bar
               ],
             ),
           ),

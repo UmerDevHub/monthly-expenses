@@ -284,7 +284,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 60),
+                const SizedBox(height: 110),
+
               ],
             ),
           ),
@@ -1107,10 +1108,68 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       decoration: const InputDecoration(
                         labelText: 'Category Name',
                         border: OutlineInputBorder(),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Quick Tags & Presets',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
                       ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        {'name': 'Bike', 'icon': 'assets/icons/bike.svg', 'color': '#5A7A9E'},
+                        {'name': 'SIM', 'icon': 'assets/icons/sim.svg', 'color': '#8E5A7A'},
+                        {'name': 'Fuel', 'icon': 'assets/icons/petrol.svg', 'color': '#C9822E'},
+                        {'name': 'Rent', 'icon': 'assets/icons/rent.svg', 'color': '#2D5F4C'},
+                        {'name': 'Food', 'icon': 'assets/icons/food.svg', 'color': '#B33A3A'},
+                        {'name': 'Other', 'icon': 'assets/icons/tag.svg', 'color': '#7A9E5A'},
+                      ].map((tag) {
+                        final isSel = nameController.text == tag['name'];
+                        return ActionChip(
+                          avatar: SvgPicture.asset(
+                            tag['icon']!,
+                            width: 14,
+                            height: 14,
+                            colorFilter: ColorFilter.mode(
+                              isSel ? Colors.white : AppColors.primary,
+                              BlendMode.srcIn,
+                            ),
+                          ),
+                          label: Text(
+                            tag['name']!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isSel ? Colors.white : (isDark ? AppColors.textPrimaryDark : AppColors.textPrimary),
+                            ),
+                          ),
+                          backgroundColor: isSel
+                              ? AppColors.primary
+                              : (isDark ? AppColors.surfaceCardDark : const Color(0xFFF0F4F1)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: BorderSide(
+                              color: isSel ? AppColors.primary : (isDark ? AppColors.borderDark : const Color(0xFFE0E0E0)),
+                            ),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              nameController.text = tag['name']!;
+                              selectedIcon = tag['icon']!;
+                              selectedColorHex = tag['color']!;
+                            });
+                          },
+                        );
+                      }).toList(),
                     ),
                     const SizedBox(height: 20),
                     const Text('Select Icon Asset', style: TextStyle(fontWeight: FontWeight.bold)),
+
                     const SizedBox(height: 8),
                     SizedBox(
                       height: 48,

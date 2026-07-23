@@ -191,8 +191,9 @@ class _MainNavigationState extends ConsumerState<MainNavigation> {
           Positioned(
             left: 18,
             right: 18,
-            bottom: 20,
+            bottom: MediaQuery.of(context).padding.bottom + 22,
             child: Container(
+
               height: 64,
               padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(

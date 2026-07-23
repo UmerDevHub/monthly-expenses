@@ -169,91 +169,102 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     // Avatar & User Info
-                    Row(
-                      children: [
-                        Stack(
-                          children: [
-                            Container(
-                              width: 46,
-                              height: 46,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF073826),
-                                shape: BoxShape.circle,
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                (settings.userName.isNotEmpty ? settings.userName[0] : 'U').toUpperCase(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 20,
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              right: 2,
-                              bottom: 2,
-                              child: Container(
-                                width: 12,
-                                height: 12,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF2EA072),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Stack(
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF073826),
                                   shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: isDark ? AppColors.backgroundDark : const Color(0xFFF9F9F8),
-                                    width: 2,
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  (settings.userName.isNotEmpty ? settings.userName[0] : 'A').toUpperCase(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _getGreeting(),
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontSize: 13,
-                                color: isDark ? AppColors.textSecondaryDark : const Color(0xFF757575),
-                                fontWeight: FontWeight.w500,
+                              Positioned(
+                                right: 2,
+                                bottom: 2,
+                                child: Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF2EA072),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isDark ? AppColors.backgroundDark : const Color(0xFFF9F9F8),
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                ),
                               ),
+                            ],
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _getGreeting(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontSize: 12,
+                                    color: isDark ? AppColors.textSecondaryDark : const Color(0xFF757575),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  settings.userName.isNotEmpty ? settings.userName : 'Abdul Jabbar',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: isDark ? AppColors.textPrimaryDark : const Color(0xFF1E2522),
+                                  ),
+                                ),
+                                Text(
+                                  'Stay on track! 💪',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? AppColors.textSecondaryDark : const Color(0xFF8C8C8C),
+                                  ),
+                                ),
+                              ],
                             ),
-                            Text(
-                              settings.userName.isNotEmpty ? settings.userName : 'Abdul Jabbar',
-
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                color: isDark ? AppColors.textPrimaryDark : const Color(0xFF1E2522),
-                              ),
-                            ),
-                            const SizedBox(height: 1),
-                            Text(
-                              'Stay on track! 💪',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: isDark ? AppColors.textSecondaryDark : const Color(0xFF8C8C8C),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
+
+                    const SizedBox(width: 8),
 
                     // Currency & Month Selectors
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         // Currency Selector Pill Button
                         GestureDetector(
                           onTap: () => _showCurrencySelector(context),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                             decoration: BoxDecoration(
                               color: isDark ? AppColors.surfaceCardDark : Colors.white,
-                              borderRadius: BorderRadius.circular(24),
+                              borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                 color: isDark ? AppColors.borderDark : const Color(0xFFE5E5E3),
                               ),
@@ -269,37 +280,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               children: [
                                 Text(
                                   CurrencyFormatter.getCurrencyFlag(settings.currency),
-                                  style: const TextStyle(fontSize: 13),
+                                  style: const TextStyle(fontSize: 12),
                                 ),
-                                const SizedBox(width: 4),
+                                const SizedBox(width: 3),
                                 Text(
                                   settings.currency,
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                     color: isDark ? AppColors.textPrimaryDark : const Color(0xFF333333),
                                   ),
                                 ),
-                                const SizedBox(width: 2),
+                                const SizedBox(width: 1),
                                 Icon(
                                   Icons.keyboard_arrow_down,
-                                  size: 14,
+                                  size: 13,
                                   color: isDark ? AppColors.textSecondaryDark : const Color(0xFF555555),
                                 ),
                               ],
                             ),
                           ),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 4),
 
                         // Month Pill Button
                         GestureDetector(
                           onTap: () => _showMonthSelector(context),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                             decoration: BoxDecoration(
                               color: isDark ? AppColors.surfaceCardDark : Colors.white,
-                              borderRadius: BorderRadius.circular(24),
+                              borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                 color: isDark ? AppColors.borderDark : const Color(0xFFE5E5E3),
                               ),
@@ -313,11 +324,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.calendar_today_rounded, size: 13, color: Color(0xFF555555)),
-                                const SizedBox(width: 4),
+                                const Icon(Icons.calendar_today_rounded, size: 12, color: Color(0xFF555555)),
+                                const SizedBox(width: 3),
                                 Text(
                                   monthName,
                                   style: TextStyle(
+
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                     color: isDark ? AppColors.textPrimaryDark : const Color(0xFF333333),
@@ -787,7 +799,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     categories: categories,
                     onExpenseTap: (exp) => _showDeleteConfirmation(context, exp),
                   ),
-                const SizedBox(height: 90),
+                const SizedBox(height: 110),
+
               ],
             ),
           ),

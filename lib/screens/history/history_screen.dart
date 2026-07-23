@@ -214,8 +214,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   : filteredLogs.isEmpty
                       ? _buildNoSearchResultState(theme, isDark)
                       : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 18.0),
+                          padding: const EdgeInsets.only(left: 18.0, right: 18.0, bottom: 110.0),
                           physics: const BouncingScrollPhysics(),
+
                           itemCount: sortedDateKeys.length,
                           itemBuilder: (context, idx) {
                             final dateKey = sortedDateKeys[idx];
