@@ -1090,9 +1090,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           child: StatefulBuilder(
             builder: (context, setState) {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
               return SafeArea(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
